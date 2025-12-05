@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consolidado por Tiempo - Sistema de Asistencia</title>
+    <script id="sap-ui-bootstrap" src="https://openui5.hana.ondemand.com/resources/sap-ui-core.js"
+        data-sap-ui-libs="sap.m,sap.ui.table" data-sap-ui-theme="sap_horizon">
+        </script>
+    <script src="/asistenciaV2r/js/menu-manager.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background-color: #3498db;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .user-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .user-avatar:hover {
+            background-color: #f0f0f0;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 220px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-header {
+            padding: 12px 16px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .dropdown-item {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            transition: background-color 0.3s ease;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item.logout {
+            border-top: 1px solid #e9ecef;
+            color: #dc3545;
+        }
+
+        .dropdown-item.logout:hover {
+            background-color: #f8d7da;
+        }
+
+        .content {
+            padding: 1rem;
+            max-width: 100%;
+            margin: 0;
+        }
+
+        .filters-section {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+
+        .filter-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .search-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            height: fit-content;
+        }
+
+        .search-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .export-btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .export-btn:hover {
+            background-color: #229954;
+        }
+
+        .table-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: auto;
+            height: calc(100vh - 180px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .info-box {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .info-box h4 {
+            margin: 0 0 10px 0;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>⏱️ Consolidado de Asistencia por Tiempo</h1>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">
+                U
+            </div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-header" id="dropdownHeader">Administrador</div>
+                <a href="/asistenciaV2r/dashboard_admin.html" class="dropdown-item">🏠 Dashboard Admin</a>
+                <a href="/asistenciaV2r/biometric_sync.html" class="dropdown-item">🔄 Sincronización</a>
+                <a href="/asistenciaV2r/procesados.html" class="dropdown-item">📋 Procesados</a>
+                <a href="/asistenciaV2r/permisos.html" class="dropdown-item">🔐 Permisos</a>
+                <a href="/asistenciaV2r/consolidado.html" class="dropdown-item">📊 Consolidado</a>
+                <a href="/asistenciaV2r/consolidado_tiempo.html" class="dropdown-item">⏱️ Consolidado Tiempo</a>
+                <a href="/asistenciaV2r/perfil.html" class="dropdown-item">👤 Perfil</a>
+                <a href="/asistenciaV2r/perfiles.html" class="dropdown-item">👥 Perfiles</a>
+                <a href="/asistenciaV2r/logout" class="dropdown-item logout">🚪 Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="info-box">
+            <h4>ℹ️ Información del Consolidado por Tiempo</h4>
+            <p><strong>Tiempo Total:</strong> Suma de todas las horas trabajadas en el mes</p>
+            <p><strong>Por Compensar:</strong> Diferencia entre las horas esperadas (días laborables × 8 horas) y las
+                horas trabajadas</p>
+            <p><strong>Nota:</strong> Solo se cuentan días laborables (excluyendo sábados, domingos y feriados según
+                tabla calendardays)</p>
+        </div>
+
+        <div class="filters-section">
+            <h3>Filtros de Búsqueda</h3>
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label for="startDate">Año y Mes:</label>
+                    <input type="month" id="startDate" name="startDate">
+                </div>
+                <div class="filter-group">
+                    <label for="searchInput">Buscar (DNI/Nombre):</label>
+                    <input type="text" id="searchInput" name="searchInput" placeholder="Ingrese DNI o nombre">
+                </div>
+                <button class="search-btn" onclick="loadConsolidatedData()">🔍 Buscar</button>
+                <button class="export-btn" onclick="exportToExcel()">📊 Exportar a Excel</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div id="consolidatedTable"></div>
+            <div id="loadingMessage" class="loading">Cargando datos consolidados por tiempo...</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.menuManager) {
+                window.menuManager.init();
+            }
+        });
+
+        function toggleDropdown() {
+            const dropdown = document.getElementById("dropdownMenu");
+            dropdown.classList.toggle("show");
+        }
+
+        window.onclick = function (event) {
+            if (!event.target.matches('.user-avatar')) {
+                const dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    const openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        function loadUserInfo() {
+            fetch('/asistenciaV2r/userInfo')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const avatar = document.getElementById('userAvatar');
+                        const firstLetter = data.name ? data.name.charAt(0).toUpperCase() : 'U';
+                        avatar.textContent = firstLetter;
+
+                        const header = document.getElementById('dropdownHeader');
+                        header.textContent = data.name || 'Usuario';
+                    }
+                })
+                .catch(error => {
+                    console.log('No se pudo cargar la información del usuario:', error);
+                });
+        }
+
+        function loadConsolidatedData() {
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const startDateValue = document.getElementById('startDate').value || `${y}-${m}`;
+            const anio = startDateValue.substring(0, 4);
+            const mes = startDateValue.substring(5, 7);
+            const q = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+
+            const params = new URLSearchParams();
+            params.append('anio', anio);
+            params.append('mes', mes);
+            if (q && q.trim()) params.append('q', q.trim());
+
+            document.getElementById('loadingMessage').style.display = 'block';
+
+            fetch(`/asistenciaV2r/api/consolidated-time?${params.toString()}`)
+                .then(r => {
+                    if (!r.ok) {
+                        return r.text().then(t => { throw new Error('Error del servidor: ' + r.status + ' - ' + t.slice(0, 200)); });
+                    }
+                    return r.json();
+                })
+                .then(arr => {
+                    document.getElementById('loadingMessage').style.display = 'none';
+                    if (!Array.isArray(arr)) {
+                        throw new Error('Formato de datos inválido');
+                    }
+                    createConsolidatedTable(arr, parseInt(anio, 10), parseInt(mes, 10));
+                })
+                .catch(err => {
+                    document.getElementById('loadingMessage').style.display = 'none';
+                    showError('Error: ' + err.message);
+                    console.error('Error cargando datos consolidados:', err);
+                });
+        }
+
+        function createConsolidatedTable(data, anio, mes) {
+            const container = document.getElementById('consolidatedTable');
+            container.innerHTML = '';
+
+            if (window.consolidatedTableUI5) {
+                try { window.consolidatedTableUI5.destroy(); } catch (e) { }
+                window.consolidatedTableUI5 = null;
+            }
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="loading">No se encontraron datos para el período seleccionado</div>';
+                return;
+            }
+
+            if (typeof sap === 'undefined' || !sap.ui || !sap.ui.table) {
+                createHTMLTable(data, anio, mes);
+                return;
+            }
+
+            const oModel = new sap.ui.model.json.JSONModel();
+            oModel.setData({ consolidated: data });
+
+            const oTable = new sap.ui.table.Table({
+                title: `Consolidado por Tiempo ${anio}-${String(mes).padStart(2, '0')} (${data.length} registros)`,
+                selectionMode: sap.ui.table.SelectionMode.None,
+                visibleRowCountMode: sap.ui.table.VisibleRowCountMode.Auto,
+                minAutoRowCount: 10,
+                enableColumnReordering: true,
+                enableColumnFreeze: true,
+                fixedColumnCount: 5,
+                firstVisibleRow: 0,
+                width: "100%"
+            });
+
+            // Columnas fijas
+            const dniInput = new sap.m.Input({ width: "100%", placeholder: "Filtrar DNI" });
+            const nomInput = new sap.m.Input({ width: "100%", placeholder: "Filtrar Nombre" });
+
+            const applyFilters = function () {
+                const filters = [];
+                const vDni = dniInput.getValue().trim();
+                const vNom = nomInput.getValue().trim();
+                if (vDni) filters.push(new sap.ui.model.Filter("dni", sap.ui.model.FilterOperator.Contains, vDni));
+                if (vNom) filters.push(new sap.ui.model.Filter("nombre", sap.ui.model.FilterOperator.Contains, vNom));
+                const binding = oTable.getBinding("rows");
+                if (binding) binding.filter(filters);
+            };
+
+            dniInput.attachLiveChange(applyFilters);
+            nomInput.attachLiveChange(applyFilters);
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.VBox({ items: [new sap.m.Text({ text: "DNI" }), dniInput] }),
+                template: new sap.m.Text({ text: "{dni}" }),
+                width: "100px",
+                hAlign: sap.ui.core.TextAlign.Left
+            }));
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.VBox({ items: [new sap.m.Text({ text: "Nombre" }), nomInput] }),
+                template: new sap.m.Text({ text: "{nombre}" }),
+                width: "220px",
+                hAlign: sap.ui.core.TextAlign.Left
+            }));
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: "Modalidad" }),
+                template: new sap.m.Text({ text: "{modalidad}" }),
+                width: "100px",
+                hAlign: sap.ui.core.TextAlign.Center
+            }));
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: "Cargo" }),
+                template: new sap.m.Text({ text: "{cargo}" }),
+                width: "180px",
+                hAlign: sap.ui.core.TextAlign.Left
+            }));
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: "Área" }),
+                template: new sap.m.Text({ text: "{area}" }),
+                width: "120px",
+                hAlign: sap.ui.core.TextAlign.Left
+            }));
+
+            // Columnas dinámicas para cada día del mes (Ingreso, Salida, Total)
+            const days = new Date(anio, mes, 0).getDate();
+            for (let d = 1; d <= days; d++) {
+                const dayKey = String(d);
+
+                // Ingreso
+                oTable.addColumn(new sap.ui.table.Column({
+                    label: new sap.m.Label({ text: `Ing ${d}` }),
+                    template: new sap.m.Text({
+                        text: `{ing${dayKey}}`,
+                        wrapping: false
+                    }),
+                    width: "60px",
+                    hAlign: sap.ui.core.TextAlign.Center
+                }));
+
+                // Salida
+                oTable.addColumn(new sap.ui.table.Column({
+                    label: new sap.m.Label({ text: `Sal ${d}` }),
+                    template: new sap.m.Text({
+                        text: `{sal${dayKey}}`,
+                        wrapping: false
+                    }),
+                    width: "60px",
+                    hAlign: sap.ui.core.TextAlign.Center
+                }));
+
+                // Total
+                oTable.addColumn(new sap.ui.table.Column({
+                    label: new sap.m.Label({ text: `Tot ${d}` }),
+                    template: new sap.m.Text({
+                        text: `{tot${dayKey}}`,
+                        wrapping: false
+                    }),
+                    width: "60px",
+                    hAlign: sap.ui.core.TextAlign.Center
+                }));
+            }
+
+            // Columnas finales
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: "Tiempo Total" }),
+                template: new sap.m.Text({ text: "{tiempoTotal}" }),
+                width: "100px",
+                hAlign: sap.ui.core.TextAlign.Center
+            }));
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: "Por Compensar" }),
+                template: new sap.m.Text({ text: "{porCompensar}" }),
+                width: "120px",
+                hAlign: sap.ui.core.TextAlign.Center
+            }));
+
+            oTable.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: "Días Lab." }),
+                template: new sap.m.Text({ text: "{diasLaborables}" }),
+                width: "80px",
+                hAlign: sap.ui.core.TextAlign.Center
+            }));
+
+            oTable.setModel(oModel);
+            oTable.bindRows("/consolidated");
+
+            oTable.placeAt("consolidatedTable");
+            window.consolidatedTableUI5 = oTable;
+        }
+
+        function createHTMLTable(data, anio, mes) {
+            const container = document.getElementById('consolidatedTable');
+            container.innerHTML = '';
+            const days = new Date(anio, mes, 0).getDate();
+
+            let html = `<div style="margin: 20px 0; font-weight: bold;">Consolidado por Tiempo ${anio}-${String(mes).padStart(2, '0')} (${data.length} registros)</div>`;
+            html += `<div style="overflow-x:auto; max-height:600px; border:1px solid #ddd;"><table style="width:100%; border-collapse:collapse; font-size:11px;">`;
+            html += `<thead><tr>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:80px; position:sticky; left:0; background:#fff; z-index:2;">DNI</th>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:180px; position:sticky; left:80px; background:#fff; z-index:2;">Nombre</th>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:100px;">Modalidad</th>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:150px;">Cargo</th>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:120px;">Área</th>`;
+
+            for (let d = 1; d <= days; d++) {
+                html += `<th style="border:1px solid #ddd; padding:4px; min-width:55px; text-align:center;">Ing ${d}</th>`;
+                html += `<th style="border:1px solid #ddd; padding:4px; min-width:55px; text-align:center;">Sal ${d}</th>`;
+                html += `<th style="border:1px solid #ddd; padding:4px; min-width:55px; text-align:center;">Tot ${d}</th>`;
+            }
+
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:90px; background:#e8f4f8;">Tiempo Total</th>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:100px; background:#fff3cd;">Por Compensar</th>`;
+            html += `<th style="border:1px solid #ddd; padding:6px; min-width:70px;">Días Lab.</th>`;
+            html += `</tr></thead><tbody>`;
+
+            for (const row of data) {
+                html += `<tr>`;
+                html += `<td style="border:1px solid #ddd; padding:4px; position:sticky; left:0; background:#fff;">${row.dni || ''}</td>`;
+                html += `<td style="border:1px solid #ddd; padding:4px; position:sticky; left:80px; background:#fff;">${row.nombre || ''}</td>`;
+                html += `<td style="border:1px solid #ddd; padding:4px;">${row.modalidad || ''}</td>`;
+                html += `<td style="border:1px solid #ddd; padding:4px;">${row.cargo || ''}</td>`;
+                html += `<td style="border:1px solid #ddd; padding:4px;">${row.area || ''}</td>`;
+
+                for (let d = 1; d <= days; d++) {
+                    const dayKey = String(d);
+                    html += `<td style="border:1px solid #ddd; padding:2px; text-align:center; font-size:10px;">${row['ing' + dayKey] || ''}</td>`;
+                    html += `<td style="border:1px solid #ddd; padding:2px; text-align:center; font-size:10px;">${row['sal' + dayKey] || ''}</td>`;
+                    html += `<td style="border:1px solid #ddd; padding:2px; text-align:center; font-size:10px; font-weight:bold;">${row['tot' + dayKey] || ''}</td>`;
+                }
+
+                html += `<td style="border:1px solid #ddd; padding:4px; text-align:center; font-weight:bold; background:#e8f4f8;">${row.tiempoTotal || ''}</td>`;
+                html += `<td style="border:1px solid #ddd; padding:4px; text-align:center; font-weight:bold; background:#fff3cd;">${row.porCompensar || ''}</td>`;
+                html += `<td style="border:1px solid #ddd; padding:4px; text-align:center;">${row.diasLaborables || ''}</td>`;
+                html += `</tr>`;
+            }
+
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        }
+
+        function exportToExcel() {
+            const dt = document.getElementById('startDate').value || new Date().toISOString().split('T')[0];
+            const anio = dt.substring(0, 4);
+            const mes = dt.substring(5, 7);
+            const q = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+
+            const params = new URLSearchParams();
+            params.append('anio', anio);
+            params.append('mes', mes);
+            if (q && q.trim()) params.append('q', q.trim());
+
+            window.open(`/asistenciaV2r/api/consolidated-time-export?${params.toString()}`, '_blank');
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+
+            const content = document.querySelector('.content');
+            content.insertBefore(errorDiv, content.firstChild);
+
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function setDefaultDates() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            document.getElementById('startDate').value = `${year}-${month}`;
+
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        loadConsolidatedData();
+                    }
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadUserInfo();
+            setDefaultDates();
+            loadConsolidatedData();
+        });
+    </script>
+</body>
+
+</html>

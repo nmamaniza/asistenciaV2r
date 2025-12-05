@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+         https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0" metadata-complete="true">
+
+    <display-name>asistenciaV2r</display-name>
+    
+    <!-- Configuración de Spring Security -->
+    <context-param>
+        <param-name>contextClass</param-name>
+        <param-value>org.springframework.web.context.support.AnnotationConfigWebApplicationContext</param-value>
+    </context-param>
+    <context-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>com.asistenciav2.config</param-value>
+    </context-param>
+    
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+    
+    <!-- Filtro de Spring Security -->
+    <filter>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+    </filter>
+    
+    <filter-mapping>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    
+    <!-- Filtro de persistencia de sesión -->
+    <filter>
+        <filter-name>sessionPersistenceFilter</filter-name>
+        <filter-class>com.asistenciav2.filter.SessionPersistenceFilter</filter-class>
+    </filter>
+    
+    <filter-mapping>
+        <filter-name>sessionPersistenceFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    
+    <!-- Configuración de sesión -->
+    <session-config>
+        <session-timeout>-1</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+            <secure>false</secure>
+            <max-age>2592000</max-age>
+        </cookie-config>
+        <tracking-mode>COOKIE</tracking-mode>
+    </session-config>
+    
+    <!-- Servlet de datos de asistencia -->
+    <servlet>
+        <servlet-name>AttendanceDataServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.AttendanceDataServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>AttendanceDataServlet</servlet-name>
+        <url-pattern>/api/attendance</url-pattern>
+    </servlet-mapping>
+    
+    <!-- Servlet para actualizar datos -->
+    <servlet>
+        <servlet-name>UpdateAttendanceServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.UpdateAttendanceServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>UpdateAttendanceServlet</servlet-name>
+        <url-pattern>/api/update</url-pattern>
+    </servlet-mapping>
+    
+    <!-- Servlet para sincronización biométrica -->
+    <servlet>
+        <servlet-name>BiometricSyncServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.BiometricSyncServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>BiometricSyncServlet</servlet-name>
+        <url-pattern>/api/biometric-sync</url-pattern>
+    </servlet-mapping>
+    
+    <!-- Servlet para búsqueda de asistencia -->
+    <servlet>
+        <servlet-name>SearchAttendanceServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.SearchAttendanceServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>SearchAttendanceServlet</servlet-name>
+        <url-pattern>/searchAttendance</url-pattern>
+    </servlet-mapping>
+
+    
+
+    
+    <!-- Mapeos adicionales para APIs admin -->
+    <servlet>
+        <servlet-name>UsersServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.UsersServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UsersServlet</servlet-name>
+        <url-pattern>/api/users</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>UsersUpdateServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.UsersUpdateServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UsersUpdateServlet</servlet-name>
+        <url-pattern>/api/users/update</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>UsersResetPasswordServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.UsersResetPasswordServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UsersResetPasswordServlet</servlet-name>
+        <url-pattern>/api/users/reset-password</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>PermissionTypesServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.PermissionTypesServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PermissionTypesServlet</servlet-name>
+        <url-pattern>/api/permission-types</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>PermissionsServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.PermissionsServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PermissionsServlet</servlet-name>
+        <url-pattern>/api/permissions</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>PermissionsDebugServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.PermissionsDebugServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PermissionsDebugServlet</servlet-name>
+        <url-pattern>/api/permissions-debug</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>LactationSchedulesServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.LactationSchedulesServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LactationSchedulesServlet</servlet-name>
+        <url-pattern>/api/lactation-schedules</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>WorkschedulesServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.WorkschedulesServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WorkschedulesServlet</servlet-name>
+        <url-pattern>/api/workschedules</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>JobAssignmentsServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.JobAssignmentsServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>JobAssignmentsServlet</servlet-name>
+        <url-pattern>/api/jobassignments</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ConsolidatedDataServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ConsolidatedDataServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ConsolidatedDataServlet</servlet-name>
+        <url-pattern>/api/consolidated-data</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ConsolidatedExportServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ConsolidatedExportServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ConsolidatedExportServlet</servlet-name>
+        <url-pattern>/api/consolidated-export</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProcessAttendanceServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ProcessAttendanceServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProcessAttendanceServlet</servlet-name>
+        <url-pattern>/api/process-attendance</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProcessedDataServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ProcessedDataServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProcessedDataServlet</servlet-name>
+        <url-pattern>/api/processed-data</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>UpdateDailyAttendanceServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.UpdateDailyAttendanceServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UpdateDailyAttendanceServlet</servlet-name>
+        <url-pattern>/api/processed-update</url-pattern>
+    </servlet-mapping>
+    
+    <!-- Servlet para consolidado mensual -->
+    <servlet>
+        <servlet-name>ConsolidadoMensualServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ConsolidadoMensualServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ConsolidadoMensualServlet</servlet-name>
+        <url-pattern>/api/consolidado-mensual</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>AttendanceListServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.AttendanceListServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AttendanceListServlet</servlet-name>
+        <url-pattern>/api/attendances</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>UserInfoServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.UserInfoServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UserInfoServlet</servlet-name>
+        <url-pattern>/api/userInfo</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ChangePasswordServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ChangePasswordServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ChangePasswordServlet</servlet-name>
+        <url-pattern>/api/changePassword</url-pattern>
+    </servlet-mapping>
+
+    <!-- Servlets de Usuario -->
+    <servlet>
+        <servlet-name>ProcessedDataUserServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ProcessedDataUserServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProcessedDataUserServlet</servlet-name>
+        <url-pattern>/api/processed-data-user</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>PermissionsUserServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.PermissionsUserServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PermissionsUserServlet</servlet-name>
+        <url-pattern>/api/permissions-user</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ConsolidatedDataUserServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ConsolidatedDataUserServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ConsolidatedDataUserServlet</servlet-name>
+        <url-pattern>/api/consolidated-data-user</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ConsolidatedTimeServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ConsolidatedTimeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ConsolidatedTimeServlet</servlet-name>
+        <url-pattern>/api/consolidated-time</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ConsolidatedTimeExportServlet</servlet-name>
+        <servlet-class>com.asistenciav2.servlet.ConsolidatedTimeExportServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ConsolidatedTimeExportServlet</servlet-name>
+        <url-pattern>/api/consolidated-time-export</url-pattern>
+    </servlet-mapping>
+
+    <welcome-file-list>
+        <welcome-file>login.html</welcome-file>
+        <welcome-file>index.html</welcome-file>
+        <welcome-file>consolidado.html</welcome-file>
+    </welcome-file-list>
+    
+</web-app>

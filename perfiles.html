@@ -1,0 +1,2716 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfiles - Administración de Usuarios</title>
+    <script src="https://sapui5.hana.ondemand.com/resources/sap-ui-core.js" data-sap-ui-theme="sap_fiori_3"
+        data-sap-ui-libs="sap.m,sap.ui.core,sap.ui.table" data-sap-ui-async="true"></script>
+    <script src="/asistenciaV2r/js/menu-manager.js"></script>
+    <style>
+        .header {
+            background: #8e44ad;
+            color: #fff;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)
+        }
+
+        .content {
+            padding: 0;
+            max-width: 100%;
+            margin: 0;
+            height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column
+        }
+
+        #usersTable {
+            height: 100%;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            background: #fff;
+            min-width: 220px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 5px
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-header {
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .dropdown-item {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item.logout {
+            border-top: 1px solid #e9ecef;
+            color: #dc3545;
+        }
+
+        .dropdown-item.logout:hover {
+            background-color: #f8d7da;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #ffffff;
+            color: #8e44ad;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div style="display:flex;align-items:center;gap:16px">
+            <h1 style="margin:0">Perfiles de Usuario</h1>
+            <!-- <div style="display:flex;gap:8px;align-items:center">
+                <input id="headerSearch" type="text" placeholder="DNI o Nombre" style="padding:8px;border-radius:6px;border:1px solid #ddd;min-width:240px">
+                <select id="headerEstado" style="padding:8px;border-radius:6px;border:1px solid #ddd">
+                    <option value="">Todos</option>
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+                <button onclick="filterLoadHeader()" style="padding:8px 12px;border-radius:6px;border:1px solid #8e44ad;background:#8e44ad;color:#fff">Buscar</button>
+            </div>-->
+        </div>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">U</div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-header" id="dropdownHeader">Administrador</div>
+                <a href="/asistenciaV2r/dashboard_admin.html" class="dropdown-item">🏠 Dashboard Admin</a>
+                <a href="/asistenciaV2r/biometric_sync.html" class="dropdown-item">🔄 Sincronización</a>
+                <a href="/asistenciaV2r/procesados.html" class="dropdown-item">📋 Procesados</a>
+                <a href="/asistenciaV2r/permisos.html" class="dropdown-item">🔐 Permisos</a>
+                <a href="/asistenciaV2r/consolidado.html" class="dropdown-item">📊 Consolidado</a>
+                <a href="/asistenciaV2r/perfiles.html" class="dropdown-item">👥 Perfiles</a>
+                <a href="/asistenciaV2r/logout" class="dropdown-item logout">🚪 Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <div id="usersTable"></div>
+    </div>
+    <script>
+        function toggleDropdown() { const d = document.getElementById('dropdownMenu'); d.classList.toggle('show'); }
+        window.onclick = function (e) { if (!e.target.matches('.user-avatar')) { const ds = document.getElementsByClassName('dropdown-menu'); for (let i = 0; i < ds.length; i++) { ds[i].classList.remove('show'); } } };
+        // Función mejorada para cargar información del usuario
+        function formatNull(v) { return v || ''; }
+        function loadUserInfo() {
+            fetch('/asistenciaV2r/api/userInfo')
+                .then(r => {
+                    // Verificar si la respuesta es exitosa
+                    if (!r.ok) {
+                        console.warn('UserInfo endpoint not available (status: ' + r.status + '). Using default user info.');
+                        return null;
+                    }
+
+                    // Verificar que sea JSON
+                    const contentType = r.headers.get('content-type');
+                    if (!contentType || contentType.indexOf('application/json') === -1) {
+                        console.warn('UserInfo endpoint returned non-JSON response. Using default user info.');
+                        return null;
+                    }
+
+                    return r.json();
+                })
+                .then(j => {
+                    if (j && j.success) {
+                        const a = document.getElementById('userAvatar');
+                        if (a) {
+                            a.textContent = (j.name || 'U').charAt(0).toUpperCase();
+                        }
+                        const header = document.getElementById('dropdownHeader');
+                        if (header) {
+                            header.textContent = j.name || 'Administrador';
+                        }
+                    } else {
+                        // Usar valores por defecto si no hay datos
+                        const a = document.getElementById('userAvatar');
+                        if (a) a.textContent = 'A';
+                        const header = document.getElementById('dropdownHeader');
+                        if (header) header.textContent = 'Administrador';
+                    }
+                })
+                .catch(e => {
+                    console.warn('Error loading user info (using defaults):', e.message);
+                    // Usar valores por defecto en caso de error
+                    const a = document.getElementById('userAvatar');
+                    if (a) a.textContent = 'A';
+                    const header = document.getElementById('dropdownHeader');
+                    if (header) header.textContent = 'Administrador';
+                });
+        }
+
+        // Funciones auxiliares para mejor manejo de errores y feedback
+        function showError(message, details) {
+            console.error(message, details);
+            sap.m.MessageToast.show(message + (details ? ': ' + details : ''), {
+                duration: 5000,
+                width: '300px',
+                my: 'center center',
+                at: 'center center'
+            });
+        }
+
+        function showSuccess(message) {
+            sap.m.MessageToast.show(message, {
+                duration: 3000,
+                width: '200px'
+            });
+        }
+
+        function validateRequiredFields(fields) {
+            const missing = [];
+            fields.forEach(field => {
+                const value = sap.ui.getCore().byId(field.id).getValue();
+                if (!value || value.trim() === '') {
+                    missing.push(field.label);
+                }
+            });
+
+            if (missing.length > 0) {
+                showError('Por favor complete los campos requeridos: ' + missing.join(', '));
+                return false;
+            }
+            return true;
+        }
+
+        function formatDateForAPI(dateValue) {
+            if (!dateValue) return '';
+
+            try {
+                // Si es un objeto Date directamente
+                if (dateValue instanceof Date) {
+                    if (isNaN(dateValue.getTime())) {
+                        console.error('Invalid Date object');
+                        return '';
+                    }
+                    const year = dateValue.getFullYear();
+                    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+                    const day = String(dateValue.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+
+                // Handle JavaScript timestamps (milliseconds)
+                if (typeof dateValue === 'number' || /^\d+$/.test(String(dateValue))) {
+                    const timestamp = parseInt(String(dateValue));
+                    const date = timestamp > 9999999999 ? new Date(timestamp) : new Date(timestamp * 1000);
+                    if (isNaN(date.getTime())) {
+                        console.error('Invalid timestamp:', dateValue);
+                        return '';
+                    }
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+
+                // Si es string, intentar diferentes formatos
+                if (typeof dateValue === 'string') {
+                    // Formato DD/MM/YY o DD/MM/YYYY
+                    const ddmmyyMatch = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+                    if (ddmmyyMatch) {
+                        let day = parseInt(ddmmyyMatch[1], 10);
+                        let month = parseInt(ddmmyyMatch[2], 10);
+                        let year = parseInt(ddmmyyMatch[3], 10);
+
+                        // Si el año es de 2 dígitos, asumir 2000-2099
+                        if (year < 100) {
+                            year = year < 50 ? 2000 + year : 1900 + year;
+                        }
+
+                        const date = new Date(year, month - 1, day);
+                        if (isNaN(date.getTime())) {
+                            console.error('Invalid date from DD/MM/YY format:', dateValue);
+                            return '';
+                        }
+                        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    }
+
+                    // Formato YYYY-MM-DD (ya está en el formato correcto)
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                        return dateValue;
+                    }
+
+                    // Intentar parsear como fecha ISO o estándar
+                    const date = new Date(dateValue);
+                    if (!isNaN(date.getTime())) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                    }
+                }
+
+                console.error('Invalid date format:', dateValue, typeof dateValue);
+                return '';
+            } catch (e) {
+                console.error('Error formatting date:', dateValue, e);
+                return '';
+            }
+        }
+
+        sap.ui.getCore().attachInit(function () {
+            if (window.menuManager) {
+                window.menuManager.init();
+            }
+            buildUsersTable();
+        });
+
+        function buildUsersTable() {
+            const model = new sap.ui.model.json.JSONModel({ users: [] });
+            const table = new sap.ui.table.Table({ title: 'Usuarios', selectionMode: sap.ui.table.SelectionMode.None, width: '100%', visibleRowCountMode: sap.ui.table.VisibleRowCountMode.Auto, minAutoRowCount: 18, rowHeight: 36 });
+
+            var filterState = { dni: '', nombre: '', apellidos: '', email: '', rol: '', estado: '' };
+            function setFilter(key, val) { filterState[key] = val; applyFilters(); }
+            function applyFilters() {
+                var filters = [];
+                var FO = sap.ui.model.FilterOperator;
+                function addContains(prop) { var v = filterState[prop]; if (v) filters.push(new sap.ui.model.Filter(prop, FO.Contains, v)); }
+                addContains('dni'); addContains('nombre'); addContains('apellidos'); addContains('email');
+                if (filterState.rol) filters.push(new sap.ui.model.Filter('rol', FO.EQ, filterState.rol));
+                if (filterState.estado) filters.push(new sap.ui.model.Filter('estado', FO.EQ, parseInt(filterState.estado, 10)));
+                table.getBinding('rows').filter(filters);
+            }
+
+            table.addColumn(new sap.ui.table.Column({ label: new sap.m.VBox({ items: [new sap.m.Label({ text: 'DNI' }), new sap.m.Input({ placeholder: 'Filtrar', liveChange: function (e) { setFilter('dni', e.getSource().getValue()); } })] }), template: new sap.m.Text({ text: '{dni}' }), width: '140px' }));
+            table.addColumn(new sap.ui.table.Column({ label: new sap.m.VBox({ items: [new sap.m.Label({ text: 'Nombre' }), new sap.m.Input({ placeholder: 'Filtrar', liveChange: function (e) { setFilter('nombre', e.getSource().getValue()); } })] }), template: new sap.m.Text({ text: '{nombre}' }), width: '180px' }));
+            table.addColumn(new sap.ui.table.Column({ label: new sap.m.VBox({ items: [new sap.m.Label({ text: 'Apellidos' }), new sap.m.Input({ placeholder: 'Filtrar', liveChange: function (e) { setFilter('apellidos', e.getSource().getValue()); } })] }), template: new sap.m.Text({ text: '{apellidos}' }), width: '200px' }));
+            table.addColumn(new sap.ui.table.Column({ label: new sap.m.VBox({ items: [new sap.m.Label({ text: 'Email' }), new sap.m.Input({ placeholder: 'Filtrar', liveChange: function (e) { setFilter('email', e.getSource().getValue()); } })] }), template: new sap.m.Text({ text: '{email}' }), width: '240px' }));
+            table.addColumn(new sap.ui.table.Column({ label: new sap.m.VBox({ items: [new sap.m.Label({ text: 'Rol' }), new sap.m.Select({ change: function (e) { setFilter('rol', e.getSource().getSelectedKey()); }, items: [new sap.ui.core.Item({ key: '', text: 'Todos' }), new sap.ui.core.Item({ key: 'ADMIN', text: 'ADMIN' }), new sap.ui.core.Item({ key: 'USER', text: 'USER' })] })] }), template: new sap.m.Text({ text: '{rol}' }), width: '140px' }));
+            table.addColumn(new sap.ui.table.Column({ label: new sap.m.VBox({ items: [new sap.m.Label({ text: 'Estado' }), new sap.m.Select({ change: function (e) { setFilter('estado', e.getSource().getSelectedKey()); }, items: [new sap.ui.core.Item({ key: '', text: 'Todos' }), new sap.ui.core.Item({ key: '1', text: 'Activo' }), new sap.ui.core.Item({ key: '0', text: 'Inactivo' })] })] }), template: new sap.m.Text({ text: { path: 'estado', formatter: function (v) { return (parseInt(v, 10) === 1) ? 'Activo' : 'Inactivo'; } } }), width: '140px' }));
+            table.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: 'Acciones' }), template: new sap.m.HBox({
+                    items: [
+                        new sap.m.Button({
+                            text: 'Editar', press: function () {
+                                const o = this.getBindingContext().getObject();
+                                const dlg = new sap.m.Dialog({
+                                    title: 'Editar Usuario', contentWidth: '400px', content: [
+                                        new sap.m.VBox({
+                                            items: [
+                                                new sap.m.Label({ text: 'Nombre' }), new sap.m.Input({ id: 'eNombre', value: o.nombre }),
+                                                new sap.m.Label({ text: 'Apellidos' }), new sap.m.Input({ id: 'eApellidos', value: o.apellidos }),
+                                                new sap.m.Label({ text: 'Email' }), new sap.m.Input({ id: 'eEmail', value: o.email }),
+                                                new sap.m.Label({ text: 'Rol' }), new sap.m.Select({ id: 'eRol', selectedKey: o.rol, items: [new sap.ui.core.Item({ key: 'ADMIN', text: 'ADMIN' }), new sap.ui.core.Item({ key: 'USER', text: 'USER' })] }),
+                                                new sap.m.Label({ text: 'Estado' }), new sap.m.Select({ id: 'eEstado', selectedKey: String(o.estado), items: [new sap.ui.core.Item({ key: '1', text: 'Activo' }), new sap.ui.core.Item({ key: '0', text: 'Inactivo' })] })
+                                            ]
+                                        })
+                                    ], beginButton: new sap.m.Button({
+                                        text: 'Guardar', type: 'Emphasized', press: function () {
+                                            const qs = new URLSearchParams();
+                                            qs.append('id', o.id); qs.append('nombre', sap.ui.getCore().byId('eNombre').getValue());
+                                            qs.append('apellidos', sap.ui.getCore().byId('eApellidos').getValue());
+                                            qs.append('email', sap.ui.getCore().byId('eEmail').getValue());
+                                            qs.append('rol', sap.ui.getCore().byId('eRol').getSelectedKey());
+                                            qs.append('estado', sap.ui.getCore().byId('eEstado').getSelectedKey());
+                                            fetch('/asistenciaV2r/api/users/update', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs.toString(), credentials: 'include' })
+                                                .then(r => { const ct = r.headers.get('content-type') || ''; if (!r.ok || ct.indexOf('application/json') === -1) { return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); }); } return r.json(); })
+                                                .then(j => { sap.m.MessageToast.show(j.message || 'Actualizado'); loadUsers(); })
+                                                .catch(e => sap.m.MessageToast.show('Error: ' + e.message));
+                                            dlg.close();
+                                        }
+                                    }), endButton: new sap.m.Button({ text: 'Cancelar', press: function () { dlg.close(); } })
+                                }); dlg.attachAfterClose(function () { try { dlg.destroy(); } catch (e) { } }); dlg.open();
+                            }
+                        }),
+                        new sap.m.Button({
+                            text: 'Reset', type: 'Transparent', press: function () {
+                                const o = this.getBindingContext().getObject();
+                                const dlg = new sap.m.Dialog({
+                                    title: 'Reset Contraseña', contentWidth: '350px', content: [
+                                        new sap.m.VBox({ items: [new sap.m.Label({ text: 'Nueva contraseña' }), new sap.m.Input({ id: 'rPass', type: 'Password' })] })
+                                    ], beginButton: new sap.m.Button({
+                                        text: 'Actualizar', type: 'Emphasized', press: function () {
+                                            const qs = new URLSearchParams(); qs.append('id', o.id); qs.append('password', sap.ui.getCore().byId('rPass').getValue());
+                                            fetch('/asistenciaV2r/api/users/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs.toString(), credentials: 'include' })
+                                                .then(r => { const ct = r.headers.get('content-type') || ''; if (!r.ok || ct.indexOf('application/json') === -1) { return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); }); } return r.json(); })
+                                                .then(j => { sap.m.MessageToast.show(j.message || 'Contraseña actualizada'); })
+                                                .catch(e => sap.m.MessageToast.show('Error: ' + e.message)); dlg.close();
+                                        }
+                                    }), endButton: new sap.m.Button({ text: 'Cancelar', press: function () { dlg.close(); } })
+                                }); dlg.attachAfterClose(function () { try { dlg.destroy(); } catch (e) { } }); dlg.open();
+                            }
+                        }),
+                        new sap.m.Button({
+                            text: 'Asignar Trabajo', type: 'Transparent', visible: false, press: function () {
+                                const o = this.getBindingContext().getObject();
+                                const dlg = new sap.m.Dialog({
+                                    title: 'Asignar Trabajo - ' + (o.nombre || o.dni),
+                                    contentWidth: '800px',
+                                    contentHeight: '600px',
+                                    resizable: true,
+                                    content: [
+                                        new sap.m.VBox({
+                                            items: [
+                                                new sap.m.Label({ text: 'Modalidad *' }),
+                                                new sap.m.Input({ id: 'jaModalidad', placeholder: 'Ej: CAS, CAP, NOMBRADO' }),
+                                                new sap.m.Label({ text: 'Cargo *' }),
+                                                new sap.m.Input({ id: 'jaCargo', placeholder: 'Ej: ADMINISTRADOR, ASISTENTE' }),
+                                                new sap.m.Label({ text: 'Área *' }),
+                                                new sap.m.Input({ id: 'jaArea', placeholder: 'Ej: SISTEMAS, RECURSOS HUMANOS' }),
+                                                new sap.m.Label({ text: 'Equipo (opcional)' }),
+                                                new sap.m.Input({ id: 'jaEquipo', placeholder: 'Ej: EQUIPO A, EQUIPO B' }),
+                                                new sap.m.Label({ text: 'Jefe (opcional)' }),
+                                                new sap.m.Input({ id: 'jaJefe', placeholder: 'Nombre del jefe inmediato' }),
+                                                new sap.m.Label({ text: 'Fecha Inicio *' }),
+                                                new sap.m.DatePicker({
+                                                    id: 'jaFechaini',
+                                                    placeholder: 'Seleccione fecha de inicio',
+                                                    displayFormat: 'dd/MM/yyyy',
+                                                    valueFormat: 'yyyy-MM-dd'
+                                                }),
+                                                new sap.m.Label({ text: 'Fecha Fin (opcional)' }),
+                                                new sap.m.DatePicker({
+                                                    id: 'jaFechafin',
+                                                    placeholder: 'Seleccione fecha de fin',
+                                                    displayFormat: 'dd/MM/yyyy',
+                                                    valueFormat: 'yyyy-MM-dd'
+                                                }),
+                                                new sap.m.Label({ text: 'Salario (opcional)' }),
+                                                new sap.m.Input({ id: 'jaSalario', type: 'Number', placeholder: 'Salario mensual' }),
+                                                new sap.m.Label({ text: 'Observaciones (opcional)' }),
+                                                new sap.m.TextArea({ id: 'jaObservaciones', placeholder: 'Observaciones adicionales', rows: 2 }),
+                                                new sap.m.Label({ text: 'Horario *' }),
+                                                new sap.m.HBox({
+                                                    items: [
+                                                        new sap.m.Select({ id: 'jaWS', placeholder: 'Seleccione un horario', width: '70%' }),
+                                                        new sap.m.Button({
+                                                            text: 'Crear Nuevo Horario',
+                                                            type: 'Transparent',
+                                                            icon: 'sap-icon://add',
+                                                            width: '30%',
+                                                            press: function () {
+                                                                openCreateWorkscheduleDialogInAssign(function (newWorkscheduleId) {
+                                                                    // Recargar los horarios y seleccionar el nuevo
+                                                                    reloadWorkschedulesInAssignDialog(newWorkscheduleId);
+                                                                });
+                                                            }
+                                                        })
+                                                    ]
+                                                })
+                                            ]
+                                        })
+                                    ],
+                                    beginButton: new sap.m.Button({
+                                        text: 'Asignar',
+                                        type: 'Emphasized',
+                                        press: function () {
+                                            // Validación de campos requeridos
+                                            const requiredFields = [
+                                                { id: 'jaModalidad', label: 'Modalidad' },
+                                                { id: 'jaCargo', label: 'Cargo' },
+                                                { id: 'jaArea', label: 'Área' },
+                                                { id: 'jaFechaini', label: 'Fecha Inicio' },
+                                                { id: 'jaWS', label: 'Horario' }
+                                            ];
+
+                                            if (!validateRequiredFields(requiredFields)) {
+                                                return;
+                                            }
+
+                                            // Verificar que se haya seleccionado un horario válido
+                                            const wsId = sap.ui.getCore().byId('jaWS').getSelectedKey();
+                                            if (!wsId || wsId === '') {
+                                                sap.m.MessageToast.show('Por favor seleccione un horario válido');
+                                                return;
+                                            }
+
+                                            const qs = new URLSearchParams();
+                                            qs.append('userId', o.id);
+                                            qs.append('modalidad', sap.ui.getCore().byId('jaModalidad').getValue().trim());
+                                            qs.append('cargo', sap.ui.getCore().byId('jaCargo').getValue().trim());
+                                            qs.append('area', sap.ui.getCore().byId('jaArea').getValue().trim());
+
+                                            // Campos opcionales: solo enviar si tienen valor
+                                            const equipo = sap.ui.getCore().byId('jaEquipo').getValue().trim();
+                                            if (equipo) {
+                                                qs.append('equipo', equipo);
+                                            }
+
+                                            const jefe = sap.ui.getCore().byId('jaJefe').getValue().trim();
+                                            if (jefe) {
+                                                qs.append('jefe', jefe);
+                                            }
+                                            // Validar y formatear fecha de inicio
+                                            const fechainiValue = sap.ui.getCore().byId('jaFechaini').getValue();
+                                            if (!fechainiValue) {
+                                                showError('Por favor seleccione una fecha de inicio');
+                                                return;
+                                            }
+                                            console.log('Fecha de inicio recibida del DatePicker:', fechainiValue, 'tipo:', typeof fechainiValue);
+                                            const fechainiFormatted = formatDateForAPI(fechainiValue);
+                                            console.log('Fecha formateada para API:', fechainiFormatted);
+                                            if (!fechainiFormatted || fechainiFormatted.trim() === '') {
+                                                showError('La fecha de inicio no es válida. Por favor seleccione una fecha correcta');
+                                                console.error('Error: No se pudo formatear la fecha:', fechainiValue);
+                                                return;
+                                            }
+                                            qs.append('fechaini', fechainiFormatted);
+
+                                            // Validar y formatear fecha de fin (opcional)
+                                            const fechafin = sap.ui.getCore().byId('jaFechafin').getValue();
+                                            if (fechafin) {
+                                                const fechafinFormatted = formatDateForAPI(fechafin);
+                                                if (fechafinFormatted && fechafinFormatted.trim() !== '') {
+                                                    qs.append('fechafin', fechafinFormatted);
+                                                }
+                                            }
+
+                                            const salario = sap.ui.getCore().byId('jaSalario').getValue();
+                                            if (salario) {
+                                                qs.append('salario', salario);
+                                            }
+
+                                            const observaciones = sap.ui.getCore().byId('jaObservaciones').getValue();
+                                            if (observaciones) {
+                                                qs.append('observaciones', observaciones);
+                                            }
+
+                                            qs.append('workscheduleId', wsId);
+
+                                            console.log('Enviando datos de asignación:', Object.fromEntries(qs));
+
+                                            fetch('/asistenciaV2r/api/jobassignments', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                                body: qs.toString(),
+                                                credentials: 'include'
+                                            })
+                                                .then(async r => {
+                                                    const ct = r.headers.get('content-type') || '';
+                                                    let responseData;
+
+                                                    try {
+                                                        if (ct.indexOf('application/json') !== -1) {
+                                                            responseData = await r.json();
+                                                        } else {
+                                                            const text = await r.text();
+                                                            console.error('Respuesta no JSON:', text);
+                                                            // Intentar parsear como JSON aunque el content-type no sea correcto
+                                                            try {
+                                                                responseData = JSON.parse(text);
+                                                            } catch (parseErr) {
+                                                                throw new Error('Respuesta del servidor no válida (' + r.status + '): ' + text.slice(0, 200));
+                                                            }
+                                                        }
+                                                    } catch (parseError) {
+                                                        console.error('Error parseando respuesta:', parseError);
+                                                        throw new Error('Error al procesar la respuesta del servidor');
+                                                    }
+
+                                                    if (!r.ok) {
+                                                        const errorMsg = responseData && responseData.message ? responseData.message : 'Error del servidor (código: ' + r.status + ')';
+                                                        showError('Error asignando trabajo', errorMsg);
+                                                        console.error('Error del servidor:', responseData);
+                                                        return;
+                                                    }
+
+                                                    if (responseData.success) {
+                                                        showSuccess(responseData.message || 'Trabajo asignado exitosamente');
+                                                        dlg.close();
+                                                    } else {
+                                                        const errorMsg = responseData.message || 'Error desconocido';
+                                                        showError('Error asignando trabajo', errorMsg);
+                                                        console.error('Error en respuesta:', responseData);
+                                                    }
+                                                })
+                                                .catch(e => {
+                                                    console.error('Error completo:', e);
+                                                    let errorMsg = e.message || 'Error desconocido';
+
+                                                    // Si el error contiene información del servidor, extraerla
+                                                    if (errorMsg.includes('Respuesta no JSON') || errorMsg.includes('Respuesta del servidor')) {
+                                                        // Intentar extraer JSON del mensaje
+                                                        const jsonMatch = errorMsg.match(/\{[^}]+\}/);
+                                                        if (jsonMatch) {
+                                                            try {
+                                                                const serverError = JSON.parse(jsonMatch[0]);
+                                                                errorMsg = serverError.message || 'Error del servidor';
+                                                            } catch (parseError) {
+                                                                // Si no se puede parsear, usar el mensaje original
+                                                            }
+                                                        }
+                                                    }
+
+                                                    showError('Error asignando trabajo', errorMsg);
+                                                });
+                                        }
+                                    }),
+                                    endButton: new sap.m.Button({
+                                        text: 'Cancelar',
+                                        press: function () { dlg.close(); }
+                                    })
+                                });
+
+                                // Cargar horarios disponibles
+                                fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                                    .then(r => r.json())
+                                    .then(list => {
+                                        const sel = sap.ui.getCore().byId('jaWS');
+                                        sel.removeAllItems();
+                                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un horario' }));
+                                        (Array.isArray(list) ? list : []).forEach(ws => {
+                                            const descripcion = ws.descripcion || 'Horario ' + ws.id;
+                                            const horaini = ws.horaini || '';
+                                            const horafin = ws.horafin || '';
+                                            const displayText = descripcion + ' (de ' + horaini + '-' + horafin + ')';
+                                            sel.addItem(new sap.ui.core.Item({
+                                                key: String(ws.id),
+                                                text: displayText
+                                            }));
+                                        });
+                                    })
+                                    .catch(e => {
+                                        console.error('Error cargando horarios:', e);
+                                        showError('No se pudieron cargar los horarios disponibles');
+                                    });
+
+                                dlg.attachAfterClose(function () {
+                                    try {
+                                        dlg.destroy();
+                                    } catch (e) {
+                                        console.error('Error destroying dialog:', e);
+                                    }
+                                });
+
+                                dlg.open();
+                            }
+                        }),
+                        new sap.m.Button({
+                            text: 'Ver Trabajo', type: 'Transparent', press: function () {
+                                const o = this.getBindingContext().getObject();
+                                const dlg = new sap.m.Dialog({
+                                    title: 'Asignaciones de ' + (o.nombre || o.dni), contentWidth: '1200px', contentHeight: '800px', resizable: true, content: [
+                                        new sap.m.VBox({
+                                            items: [
+                                                new sap.m.Toolbar({
+                                                    content: [
+                                                        new sap.m.Button({
+                                                            id: 'btnAssignJob', text: 'Asignar Trabajo', type: 'Emphasized', press: function () {
+                                                                const ad = new sap.m.Dialog({
+                                                                    title: 'Asignar Trabajo', contentWidth: '800px', contentHeight: '600px', resizable: true, content: [
+                                                                        new sap.m.VBox({
+                                                                            items: [
+                                                                                new sap.m.Label({ text: 'Modalidad *' }), new sap.m.Input({ id: 'jaModalidad', placeholder: 'Ej: CAS, CAP, NOMBRADO' }),
+                                                                                new sap.m.Label({ text: 'Cargo *' }), new sap.m.Input({ id: 'jaCargo', placeholder: 'Ej: ADMINISTRADOR, ASISTENTE' }),
+                                                                                new sap.m.Label({ text: 'Área *' }), new sap.m.Input({ id: 'jaArea', placeholder: 'Ej: SISTEMAS, RECURSOS HUMANOS' }),
+                                                                                new sap.m.Label({ text: 'Equipo (opcional)' }), new sap.m.Input({ id: 'jaEquipo', placeholder: 'Ej: EQUIPO A, EQUIPO B' }),
+                                                                                new sap.m.Label({ text: 'Jefe (opcional)' }), new sap.m.Input({ id: 'jaJefe', placeholder: 'Nombre del jefe inmediato' }),
+                                                                                new sap.m.Label({ text: 'Fecha Inicio *' }), new sap.m.DatePicker({
+                                                                                    id: 'jaFechaini',
+                                                                                    displayFormat: 'dd/MM/yyyy',
+                                                                                    valueFormat: 'yyyy-MM-dd',
+                                                                                    placeholder: 'Seleccione fecha de inicio'
+                                                                                }),
+                                                                                new sap.m.Label({ text: 'Fecha Fin (opcional)' }), new sap.m.DatePicker({ id: 'jaFechafin', displayFormat: 'dd/MM/yyyy', valueFormat: 'yyyy-MM-dd', placeholder: 'Seleccione fecha de fin' }),
+                                                                                new sap.m.Label({ text: 'Salario (opcional)' }), new sap.m.Input({ id: 'jaSalario', type: 'Number', placeholder: 'Salario mensual' }),
+                                                                                new sap.m.Label({ text: 'Observaciones (opcional)' }), new sap.m.TextArea({ id: 'jaObservaciones', placeholder: 'Observaciones adicionales', rows: 2 }),
+                                                                                new sap.m.Label({ text: 'Horario *' }),
+                                                                                new sap.m.HBox({
+                                                                                    items: [
+                                                                                        new sap.m.Select({ id: 'jaWS', placeholder: 'Seleccione un horario', width: '70%' }),
+                                                                                        new sap.m.Button({
+                                                                                            text: 'Crear Nuevo Horario',
+                                                                                            type: 'Transparent',
+                                                                                            icon: 'sap-icon://add',
+                                                                                            width: '30%',
+                                                                                            press: function () {
+                                                                                                openCreateWorkscheduleDialogInVerTrabajo(function (newWorkscheduleId) {
+                                                                                                    reloadWorkschedulesInVerTrabajoDialog(newWorkscheduleId);
+                                                                                                });
+                                                                                            }
+                                                                                        })
+                                                                                    ]
+                                                                                })
+                                                                            ]
+                                                                        })
+                                                                    ], beginButton: new sap.m.Button({
+                                                                        text: 'Asignar', type: 'Emphasized', press: function () {
+                                                                            const qs = new URLSearchParams();
+                                                                            qs.append('userId', o.id);
+                                                                            qs.append('modalidad', sap.ui.getCore().byId('jaModalidad').getValue());
+                                                                            qs.append('cargo', sap.ui.getCore().byId('jaCargo').getValue());
+                                                                            qs.append('area', sap.ui.getCore().byId('jaArea').getValue());
+
+                                                                            const equipoValue = sap.ui.getCore().byId('jaEquipo').getValue();
+                                                                            if (equipoValue && equipoValue.trim() !== '') {
+                                                                                qs.append('equipo', equipoValue);
+                                                                            }
+
+                                                                            const jefeValue = sap.ui.getCore().byId('jaJefe').getValue();
+                                                                            if (jefeValue && jefeValue.trim() !== '') {
+                                                                                qs.append('jefe', jefeValue);
+                                                                            }
+                                                                            qs.append('fechaini', sap.ui.getCore().byId('jaFechaini').getValue());
+
+                                                                            const fechafinValue = sap.ui.getCore().byId('jaFechafin').getValue();
+                                                                            if (fechafinValue && fechafinValue.trim() !== '') {
+                                                                                qs.append('fechafin', fechafinValue);
+                                                                            }
+
+                                                                            const salarioValue = sap.ui.getCore().byId('jaSalario').getValue();
+                                                                            if (salarioValue && salarioValue.trim() !== '') {
+                                                                                qs.append('salario', salarioValue);
+                                                                            }
+                                                                            const wsKeySel = sap.ui.getCore().byId('jaWS').getSelectedKey();
+                                                                            if (!wsKeySel) { sap.m.MessageToast.show('Seleccione un horario'); return; }
+                                                                            if (!sap.ui.getCore().byId('jaFechaini').getValue()) { sap.m.MessageToast.show('Ingrese fecha de inicio'); return; }
+                                                                            qs.append('workscheduleId', wsKeySel);
+                                                                            fetch('/asistenciaV2r/api/jobassignments', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs.toString(), credentials: 'include' })
+                                                                                .then(r => r.json())
+                                                                                .then(j => {
+                                                                                    if (!j.success) { sap.m.MessageToast.show(j.message || 'Error asignando trabajo'); return; } sap.m.MessageToast.show(j.message || 'Trabajo asignado');
+                                                                                    fetch('/asistenciaV2r/api/jobassignments?userId=' + o.id, { credentials: 'include' })
+                                                                                        .then(r => r.json())
+                                                                                        .then(list => {
+                                                                                            // Filtrar solo las asignaciones activas (estado != 0)
+                                                                                            const activeList = (Array.isArray(list) ? list : []).filter(item => {
+                                                                                                return item.estado !== 0 && item.estado !== '0';
+                                                                                            });
+                                                                                            const model2 = new sap.ui.model.json.JSONModel({ items: activeList });
+                                                                                            const tbl = sap.ui.getCore().byId('jaTable');
+                                                                                            tbl.setModel(model2);
+                                                                                            tbl.bindItems('/items', new sap.m.ColumnListItem({
+                                                                                                cells: [
+                                                                                                    new sap.m.Text({ text: '{modalidad}' }),
+                                                                                                    new sap.m.Text({ text: '{cargo}' }),
+                                                                                                    new sap.m.Text({ text: '{area}' }),
+                                                                                                    new sap.m.Text({ text: '{equipo}' }),
+                                                                                                    new sap.m.Text({ text: '{jefe}' }),
+                                                                                                    new sap.m.Text({
+                                                                                                        text: {
+                                                                                                            path: 'fechaini',
+                                                                                                            formatter: function (value) {
+                                                                                                                if (!value || value === 'null') return '';
+                                                                                                                try {
+                                                                                                                    // Caso 1: SAPUI5 ya convirtió el string a objeto Date
+                                                                                                                    if (value instanceof Date) {
+                                                                                                                        var day = value.getUTCDate().toString().padStart(2, '0');
+                                                                                                                        var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                                        var year = value.getUTCFullYear();
+                                                                                                                        return day + '/' + month + '/' + year;
+                                                                                                                    }
+
+                                                                                                                    // Caso 2: Es un string
+                                                                                                                    const strVal = String(value).trim();
+
+                                                                                                                    // Si es formato YYYY-MM-DD
+                                                                                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                                                                                        const parts = strVal.split('-');
+                                                                                                                        return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                                                                                    }
+
+                                                                                                                    // Fallback: intentar crear fecha y usar UTC
+                                                                                                                    const date = new Date(value);
+                                                                                                                    if (!isNaN(date.getTime())) {
+                                                                                                                        var day = date.getUTCDate().toString().padStart(2, '0');
+                                                                                                                        var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                                        var year = date.getUTCFullYear();
+                                                                                                                        return day + '/' + month + '/' + year;
+                                                                                                                    }
+
+                                                                                                                    return strVal;
+                                                                                                                } catch (e) {
+                                                                                                                    console.error("Error formatting date", e);
+                                                                                                                    return String(value);
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }),
+                                                                                                    new sap.m.Text({
+                                                                                                        text: {
+                                                                                                            path: 'fechafin',
+                                                                                                            formatter: function (value) {
+                                                                                                                if (!value || value === 'null') return '';
+                                                                                                                try {
+                                                                                                                    // Caso 1: Objeto Date
+                                                                                                                    if (value instanceof Date) {
+                                                                                                                        var day = value.getUTCDate().toString().padStart(2, '0');
+                                                                                                                        var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                                        var year = value.getUTCFullYear();
+                                                                                                                        return day + '/' + month + '/' + year;
+                                                                                                                    }
+
+                                                                                                                    // Caso 2: String
+                                                                                                                    const strVal = String(value).trim();
+
+                                                                                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                                                                                        const parts = strVal.split('-');
+                                                                                                                        return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                                                                                    }
+
+                                                                                                                    // Fallback
+                                                                                                                    const date = new Date(value);
+                                                                                                                    if (!isNaN(date.getTime())) {
+                                                                                                                        var day = date.getUTCDate().toString().padStart(2, '0');
+                                                                                                                        var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                                        var year = date.getUTCFullYear();
+                                                                                                                        return day + '/' + month + '/' + year;
+                                                                                                                    }
+
+                                                                                                                    return strVal;
+                                                                                                                } catch (e) {
+                                                                                                                    return String(value);
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }),
+                                                                                                    new sap.m.Text({ text: '{salario}' }),
+                                                                                                    new sap.m.Text({ text: '{workschedule}' }),
+                                                                                                    new sap.m.Text({ text: '{horaini}' }),
+                                                                                                    new sap.m.Text({ text: '{horafin}' }),
+                                                                                                    new sap.m.HBox({
+                                                                                                        items: [
+                                                                                                            new sap.m.Button({
+                                                                                                                text: 'Editar',
+                                                                                                                type: 'Transparent',
+                                                                                                                icon: 'sap-icon://edit',
+                                                                                                                press: function () {
+                                                                                                                    const ctx = this.getBindingContext();
+                                                                                                                    const assignment = ctx.getObject();
+                                                                                                                    openEditJobAssignmentDialog(assignment);
+                                                                                                                }
+                                                                                                            }),
+                                                                                                            new sap.m.Button({
+                                                                                                                text: 'Eliminar',
+                                                                                                                type: 'Reject',
+                                                                                                                icon: 'sap-icon://delete',
+                                                                                                                press: function () {
+                                                                                                                    const ctx = this.getBindingContext();
+                                                                                                                    const assignment = ctx.getObject();
+                                                                                                                    deleteJobAssignment(assignment);
+                                                                                                                }
+                                                                                                            })
+                                                                                                        ]
+                                                                                                    })
+                                                                                                ]
+                                                                                            }));
+                                                                                        }).catch(() => { });
+                                                                                    ad.close();
+                                                                                })
+                                                                                .catch(e => sap.m.MessageToast.show('Error: ' + e.message));
+                                                                        }
+                                                                    }), endButton: new sap.m.Button({ text: 'Cancelar', press: function () { ad.close(); } })
+                                                                });
+                                                                fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                                                                    .then(r => r.json()).then(list => {
+                                                                        const sel = sap.ui.getCore().byId('jaWS');
+                                                                        sel.removeAllItems();
+                                                                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un horario' }));
+                                                                        (Array.isArray(list) ? list : []).forEach(ws => {
+                                                                            const descripcion = ws.descripcion || 'Horario ' + ws.id;
+                                                                            const horaini = ws.horaini || '';
+                                                                            const horafin = ws.horafin || '';
+                                                                            const displayText = descripcion + ' (de ' + horaini + '-' + horafin + ')';
+                                                                            sel.addItem(new sap.ui.core.Item({ key: String(ws.id), text: displayText }));
+                                                                        });
+                                                                    })
+                                                                    .catch(() => { });
+                                                                ad.attachAfterClose(function () { try { ad.destroy(); } catch (e) { } }); ad.open();
+                                                            }
+                                                        }),
+                                                        new sap.m.ToolbarSpacer(),
+                                                        new sap.m.Button({
+                                                            text: 'Refrescar', type: 'Transparent', press: function () {
+                                                                fetch('/asistenciaV2r/api/jobassignments?userId=' + o.id, { credentials: 'include' })
+                                                                    .then(r => r.json())
+                                                                    .then(list => {
+                                                                        // Filtrar solo las asignaciones activas (estado != 0)
+                                                                        const activeList = (Array.isArray(list) ? list : []).filter(item => {
+                                                                            return item.estado !== 0 && item.estado !== '0';
+                                                                        });
+                                                                        const model2 = new sap.ui.model.json.JSONModel({ items: activeList });
+                                                                        const tbl = sap.ui.getCore().byId('jaTable');
+                                                                        tbl.setModel(model2);
+                                                                        tbl.bindItems('/items', new sap.m.ColumnListItem({
+                                                                            cells: [
+                                                                                new sap.m.Text({ text: { path: 'modalidad', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'cargo', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'area', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'equipo', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'jefe', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({
+                                                                                    text: {
+                                                                                        path: 'fechaini',
+                                                                                        formatter: function (value) {
+                                                                                            if (!value || value === 'null') return '';
+                                                                                            try {
+                                                                                                // Caso 1: SAPUI5 ya convirtió el string a objeto Date
+                                                                                                if (value instanceof Date) {
+                                                                                                    var day = value.getUTCDate().toString().padStart(2, '0');
+                                                                                                    var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                    var year = value.getUTCFullYear();
+                                                                                                    return day + '/' + month + '/' + year;
+                                                                                                }
+
+                                                                                                // Caso 2: Es un string
+                                                                                                const strVal = String(value).trim();
+
+                                                                                                // Si es formato YYYY-MM-DD
+                                                                                                if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                                                                    const parts = strVal.split('-');
+                                                                                                    return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                                                                }
+
+                                                                                                // Fallback: intentar crear fecha y usar UTC
+                                                                                                const date = new Date(value);
+                                                                                                if (!isNaN(date.getTime())) {
+                                                                                                    var day = date.getUTCDate().toString().padStart(2, '0');
+                                                                                                    var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                    var year = date.getUTCFullYear();
+                                                                                                    return day + '/' + month + '/' + year;
+                                                                                                }
+
+                                                                                                return strVal;
+                                                                                            } catch (e) {
+                                                                                                console.error("Error formatting date", e);
+                                                                                                return String(value);
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }),
+                                                                                new sap.m.Text({
+                                                                                    text: {
+                                                                                        path: 'fechafin',
+                                                                                        formatter: function (value) {
+                                                                                            if (!value || value === 'null') return '';
+                                                                                            try {
+                                                                                                // Caso 1: Objeto Date
+                                                                                                if (value instanceof Date) {
+                                                                                                    var day = value.getUTCDate().toString().padStart(2, '0');
+                                                                                                    var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                    var year = value.getUTCFullYear();
+                                                                                                    return day + '/' + month + '/' + year;
+                                                                                                }
+
+                                                                                                // Caso 2: String
+                                                                                                const strVal = String(value).trim();
+
+                                                                                                if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                                                                    const parts = strVal.split('-');
+                                                                                                    return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                                                                }
+
+                                                                                                // Fallback
+                                                                                                const date = new Date(value);
+                                                                                                if (!isNaN(date.getTime())) {
+                                                                                                    var day = date.getUTCDate().toString().padStart(2, '0');
+                                                                                                    var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                                                    var year = date.getUTCFullYear();
+                                                                                                    return day + '/' + month + '/' + year;
+                                                                                                }
+
+                                                                                                return strVal;
+                                                                                            } catch (e) {
+                                                                                                return String(value);
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }),
+                                                                                new sap.m.Text({ text: { path: 'salario', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'workschedule', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'horaini', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.Text({ text: { path: 'horafin', formatter: function (v) { return v || ''; } } }),
+                                                                                new sap.m.HBox({
+                                                                                    items: [
+                                                                                        new sap.m.Button({
+                                                                                            text: 'Editar',
+                                                                                            type: 'Transparent',
+                                                                                            icon: 'sap-icon://edit',
+                                                                                            press: function () {
+                                                                                                const ctx = this.getBindingContext();
+                                                                                                const assignment = ctx.getObject();
+                                                                                                openEditJobAssignmentDialog(assignment);
+                                                                                            }
+                                                                                        }),
+                                                                                        new sap.m.Button({
+                                                                                            text: 'Eliminar',
+                                                                                            type: 'Reject',
+                                                                                            icon: 'sap-icon://delete',
+                                                                                            press: function () {
+                                                                                                const ctx = this.getBindingContext();
+                                                                                                const assignment = ctx.getObject();
+                                                                                                deleteJobAssignment(assignment);
+                                                                                            }
+                                                                                        })
+                                                                                    ]
+                                                                                })
+                                                                            ]
+                                                                        }));
+                                                                    }).catch(() => { });
+                                                            }
+                                                        })
+                                                    ]
+                                                }),
+                                                new sap.m.Table({
+                                                    id: 'jaTable', headerText: 'Asignaciones', columns: [
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Modalidad' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Cargo' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Área' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Equipo' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Jefe' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Inicio' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Fin' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Salario' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Horario' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Inicio Horario' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Fin Horario' }) }),
+                                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Acciones' }) })
+                                                    ]
+                                                })]
+                                        })
+                                    ], endButton: new sap.m.Button({ text: 'Cerrar', press: function () { dlg.close(); } })
+                                });
+                                fetch('/asistenciaV2r/api/jobassignments?userId=' + o.id, { credentials: 'include' })
+                                    .then(r => { const ct = r.headers.get('content-type') || ''; if (!r.ok || ct.indexOf('application/json') === -1) { return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); }); } return r.json(); })
+                                    .then(list => {
+                                        // Filtrar solo las asignaciones activas (estado != 0)
+                                        const activeList = (Array.isArray(list) ? list : []).filter(item => {
+                                            return item.estado !== 0 && item.estado !== '0';
+                                        });
+                                        const model = new sap.ui.model.json.JSONModel({ items: activeList });
+                                        const tbl = sap.ui.getCore().byId('jaTable');
+                                        tbl.setModel(model);
+                                        tbl.bindItems('/items', new sap.m.ColumnListItem({
+                                            cells: [
+                                                new sap.m.Text({ text: '{modalidad}' }),
+                                                new sap.m.Text({ text: '{cargo}' }),
+                                                new sap.m.Text({ text: '{area}' }),
+                                                new sap.m.Text({ text: '{equipo}' }),
+                                                new sap.m.Text({ text: '{jefe}' }),
+                                                new sap.m.Text({
+                                                    text: {
+                                                        path: 'fechaini',
+                                                        formatter: function (value) {
+                                                            if (!value || value === 'null') return '';
+                                                            try {
+                                                                // Caso 1: SAPUI5 ya convirtió el string a objeto Date
+                                                                if (value instanceof Date) {
+                                                                    var day = value.getUTCDate().toString().padStart(2, '0');
+                                                                    var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                    var year = value.getUTCFullYear();
+                                                                    return day + '/' + month + '/' + year;
+                                                                }
+
+                                                                // Caso 2: Es un string
+                                                                const strVal = String(value).trim();
+
+                                                                // Si es formato YYYY-MM-DD
+                                                                if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                                    const parts = strVal.split('-');
+                                                                    return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                                }
+
+                                                                // Fallback: intentar crear fecha y usar UTC
+                                                                const date = new Date(value);
+                                                                if (!isNaN(date.getTime())) {
+                                                                    var day = date.getUTCDate().toString().padStart(2, '0');
+                                                                    var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                    var year = date.getUTCFullYear();
+                                                                    return day + '/' + month + '/' + year;
+                                                                }
+
+                                                                return strVal;
+                                                            } catch (e) {
+                                                                console.error("Error formatting date", e);
+                                                                return String(value);
+                                                            }
+                                                        }
+                                                    }
+                                                }),
+                                                new sap.m.Text({
+                                                    text: {
+                                                        path: 'fechafin',
+                                                        formatter: function (value) {
+                                                            if (!value || value === 'null') return '';
+                                                            try {
+                                                                // Caso 1: Objeto Date
+                                                                if (value instanceof Date) {
+                                                                    var day = value.getUTCDate().toString().padStart(2, '0');
+                                                                    var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                    var year = value.getUTCFullYear();
+                                                                    return day + '/' + month + '/' + year;
+                                                                }
+
+                                                                // Caso 2: String
+                                                                const strVal = String(value).trim();
+
+                                                                if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                                    const parts = strVal.split('-');
+                                                                    return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                                }
+
+                                                                // Fallback
+                                                                const date = new Date(value);
+                                                                if (!isNaN(date.getTime())) {
+                                                                    var day = date.getUTCDate().toString().padStart(2, '0');
+                                                                    var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                                    var year = date.getUTCFullYear();
+                                                                    return day + '/' + month + '/' + year;
+                                                                }
+
+                                                                return strVal;
+                                                            } catch (e) {
+                                                                return String(value);
+                                                            }
+                                                        }
+                                                    }
+                                                }),
+                                                new sap.m.Text({ text: { path: 'salario', formatter: formatNull } }),
+                                                new sap.m.Text({ text: { path: 'workschedule', formatter: formatNull } }),
+                                                new sap.m.Text({ text: { path: 'horaini', formatter: formatNull } }),
+                                                new sap.m.Text({ text: { path: 'horafin', formatter: formatNull } }),
+                                                new sap.m.HBox({
+                                                    items: [
+                                                        new sap.m.Button({
+                                                            text: 'Editar',
+                                                            type: 'Transparent',
+                                                            icon: 'sap-icon://edit',
+                                                            press: function () {
+                                                                const ctx = this.getBindingContext();
+                                                                const assignment = ctx.getObject();
+                                                                openEditJobAssignmentDialog(assignment);
+                                                            }
+                                                        }),
+                                                        new sap.m.Button({
+                                                            text: 'Eliminar',
+                                                            type: 'Reject',
+                                                            icon: 'sap-icon://delete',
+                                                            press: function () {
+                                                                const ctx = this.getBindingContext();
+                                                                const assignment = ctx.getObject();
+                                                                deleteJobAssignment(assignment);
+                                                            }
+                                                        })
+                                                    ]
+                                                })
+                                            ]
+                                        }));
+                                        dlg.attachAfterClose(function () { try { dlg.destroy(); } catch (e) { } }); dlg.open();
+                                    })
+                                    .catch(e => sap.m.MessageToast.show('Error: ' + e.message));
+                            }
+                        })]
+                }), width: '260px'
+            }));
+            table.addColumn(new sap.ui.table.Column({
+                label: new sap.m.Label({ text: 'Permisos' }),
+                template: new sap.m.Button({
+                    text: 'Ver Permisos',
+                    type: 'Transparent',
+                    press: function () {
+                        const o = this.getBindingContext().getObject();
+                        openPermissionsDialog(o);
+                    }
+                })
+            }));
+            table.setModel(model); table.bindRows('/users');
+            const oPanel = new sap.m.Panel({
+                width: '100%', height: '100%', content: [
+                    new sap.m.Toolbar({
+                        content: [
+                            new sap.m.Button({ text: 'Nuevo Usuario', type: 'Emphasized', press: openCreateDialog }),
+                            new sap.m.ToolbarSpacer(),
+                            new sap.m.Button({ text: 'Refrescar', press: function () { loadUsers(); } })
+                        ]
+                    }), table]
+            });
+            oPanel.placeAt('usersTable');
+            function filterLoadHeader() {
+                const q = document.getElementById('headerSearch').value;
+                const est = document.getElementById('headerEstado').value;
+                loadUsers(q, est);
+            }
+            function filterLoad() {
+                const q = sap.ui.getCore().byId('searchQ').getValue();
+                const est = sap.ui.getCore().byId('estadoSel').getSelectedKey();
+                loadUsers(q, est);
+            }
+            function loadUsers(q, estado) {
+                const qs = new URLSearchParams();
+                if (q) qs.append('q', q);
+                if (estado) qs.append('estado', estado);
+                fetch('/asistenciaV2r/api/users?' + qs.toString(), { credentials: 'include' })
+                    .then(r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!r.ok || ct.indexOf('application/json') === -1) {
+                            return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                        }
+                        return r.json();
+                    })
+                    .then(list => { model.setProperty('/users', Array.isArray(list) ? list : []); try { sap.m.MessageToast.show('Usuarios cargados: ' + (list && list.length || 0)); } catch (e) { } })
+                    .catch(e => {
+                        const now = new Date();
+                        const anio = now.getFullYear();
+                        const mes = now.getMonth() + 1;
+                        fetch('/asistenciaV2r/api/processed-data?anio=' + anio + '&mes=' + mes, { credentials: 'include' })
+                            .then(r2 => r2.json())
+                            .then(rows => {
+                                const map = {};
+                                (Array.isArray(rows) ? rows : []).forEach(x => {
+                                    if (!x) return; const dni = x.dni; if (!dni || map[dni]) return; map[dni] = {
+                                        dni: x.dni,
+                                        nombre: x.nombre || '',
+                                        apellidos: '',
+                                        email: '',
+                                        rol: '',
+                                        estado: ''
+                                    };
+                                });
+                                const list = Object.values(map);
+                                model.setProperty('/users', list);
+                                sap.m.MessageToast.show('Usuarios (fallback) cargados: ' + list.length);
+                            })
+                            .catch(() => sap.m.MessageToast.show('Error al cargar usuarios: ' + e.message));
+                    });
+            }
+            // Función para abrir el diálogo de permisos mejorado
+            function openPermissionsDialog(userData) {
+                const dlg = new sap.m.Dialog({
+                    title: 'Permisos de ' + (userData.nombre || userData.dni),
+                    contentWidth: '900px',
+                    contentHeight: '600px',
+                    resizable: true,
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Toolbar({
+                                    content: [
+                                        new sap.m.Button({
+                                            text: 'Nuevo Permiso',
+                                            type: 'Emphasized',
+                                            press: function () {
+                                                openNewPermissionDialog(userData);
+                                            }
+                                        }),
+                                        new sap.m.ToolbarSpacer(),
+                                        new sap.m.Button({
+                                            text: 'Refrescar',
+                                            type: 'Transparent',
+                                            press: function () {
+                                                loadUserPermissions(userData.id, userData);
+                                            }
+                                        })
+                                    ]
+                                }),
+                                new sap.m.Table({
+                                    id: 'permTable',
+                                    headerText: 'Permisos del Usuario',
+                                    columns: [
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Tipo' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Descripción' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Cargo' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Modo' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Inicio' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Fin' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Estado' }) }),
+                                        new sap.m.Column({ header: new sap.m.Text({ text: 'Acciones' }) })
+                                    ]
+                                })
+                            ]
+                        })
+                    ],
+                    endButton: new sap.m.Button({
+                        text: 'Cerrar',
+                        press: function () {
+                            dlg.close();
+                        }
+                    })
+                });
+
+                // Cargar permisos del usuario
+                loadUserPermissions(userData.id, userData);
+
+                dlg.attachAfterClose(function () {
+                    try {
+                        dlg.destroy();
+                    } catch (e) {
+                        console.error('Error destroying permissions dialog:', e);
+                    }
+                });
+
+                dlg.open();
+            }
+
+            // Función para cargar permisos de usuario
+            function loadUserPermissions(userId, userData) {
+                fetch('/asistenciaV2r/api/permissions?userId=' + userId, { credentials: 'include' })
+                    .then(r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!r.ok || ct.indexOf('application/json') === -1) {
+                            return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                        }
+                        return r.json();
+                    })
+                    .then(list => {
+                        const model = new sap.ui.model.json.JSONModel({ items: Array.isArray(list) ? list : [], userData: userData });
+                        const tbl = sap.ui.getCore().byId('permTable');
+                        if (tbl) {
+                            tbl.setModel(model);
+                            tbl.bindItems('/items', new sap.m.ColumnListItem({
+                                cells: [
+                                    new sap.m.Text({ text: '{codigo}' }),
+                                    new sap.m.Text({ text: '{descripcion}' }),
+                                    new sap.m.Text({ text: '{cargo}' }),
+                                    new sap.m.Text({ text: '{modo}' }),
+                                    new sap.m.Text({
+                                        text: {
+                                            path: 'fechaini',
+                                            formatter: function (value) {
+                                                if (!value || value === 'null') return '';
+                                                try {
+                                                    // Caso 1: SAPUI5 ya convirtió el string a objeto Date
+                                                    if (value instanceof Date) {
+                                                        var day = value.getUTCDate().toString().padStart(2, '0');
+                                                        var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                        var year = value.getUTCFullYear();
+                                                        return day + '/' + month + '/' + year;
+                                                    }
+
+                                                    // Caso 2: Es un string
+                                                    const strVal = String(value).trim();
+
+                                                    // Si es formato YYYY-MM-DD
+                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                        const parts = strVal.split('-');
+                                                        return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                    }
+
+                                                    // Fallback: intentar crear fecha y usar UTC
+                                                    const date = new Date(value);
+                                                    if (!isNaN(date.getTime())) {
+                                                        var day = date.getUTCDate().toString().padStart(2, '0');
+                                                        var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                        var year = date.getUTCFullYear();
+                                                        return day + '/' + month + '/' + year;
+                                                    }
+
+                                                    return strVal;
+                                                } catch (e) {
+                                                    console.error("Error formatting date", e);
+                                                    return String(value);
+                                                }
+                                            }
+                                        }
+                                    }),
+                                    new sap.m.Text({
+                                        text: {
+                                            path: 'fechafin',
+                                            formatter: function (value) {
+                                                if (!value || value === 'null') return '';
+                                                try {
+                                                    // Caso 1: Objeto Date
+                                                    if (value instanceof Date) {
+                                                        var day = value.getUTCDate().toString().padStart(2, '0');
+                                                        var month = (value.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                        var year = value.getUTCFullYear();
+                                                        return day + '/' + month + '/' + year;
+                                                    }
+
+                                                    // Caso 2: String
+                                                    const strVal = String(value).trim();
+
+                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+                                                        const parts = strVal.split('-');
+                                                        return parts[2] + '/' + parts[1] + '/' + parts[0];
+                                                    }
+
+                                                    // Fallback
+                                                    const date = new Date(value);
+                                                    if (!isNaN(date.getTime())) {
+                                                        var day = date.getUTCDate().toString().padStart(2, '0');
+                                                        var month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                                                        var year = date.getUTCFullYear();
+                                                        return day + '/' + month + '/' + year;
+                                                    }
+
+                                                    return strVal;
+                                                } catch (e) {
+                                                    return String(value);
+                                                }
+                                            }
+                                        }
+                                    }),
+                                    new sap.m.Text({
+                                        text: {
+                                            path: 'estado',
+                                            formatter: function (v) {
+                                                return (parseInt(v, 10) === 1) ? 'Activo' : 'Inactivo';
+                                            }
+                                        }
+                                    }),
+                                    new sap.m.HBox({
+                                        items: [
+                                            new sap.m.Button({
+                                                text: 'Editar',
+                                                type: 'Transparent',
+                                                icon: 'sap-icon://edit',
+                                                press: function () {
+                                                    const perm = this.getBindingContext().getObject();
+                                                    const model = this.getModel();
+                                                    const userData = model.getProperty('/userData');
+                                                    openEditPermissionDialog(perm, userData);
+                                                }
+                                            }),
+                                            new sap.m.Button({
+                                                text: 'Eliminar',
+                                                type: 'Transparent',
+                                                icon: 'sap-icon://delete',
+                                                press: function () {
+                                                    const perm = this.getBindingContext().getObject();
+                                                    const model = this.getModel();
+                                                    const userData = model.getProperty('/userData');
+                                                    deletePermission(perm.id, userData);
+                                                }
+                                            })
+                                        ]
+                                    })
+                                ]
+                            }));
+                        }
+                    })
+                    .catch(e => {
+                        showError('Error cargando permisos', e.message);
+                    });
+            }
+
+            // Función para editar permiso
+            function openEditPermissionDialog(permData, userData) {
+                const ed = new sap.m.Dialog({
+                    title: 'Editar Permiso - ' + (userData.nombre || userData.dni),
+                    contentWidth: '700px',
+                    resizable: true,
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'Tipo de Permiso *' }),
+                                new sap.m.Select({
+                                    id: 'ePermTipo',
+                                    change: function () {
+                                        const key = sap.ui.getCore().byId('ePermTipo').getSelectedKey();
+                                        const box = sap.ui.getCore().byId('eLactBox');
+                                        if (box) box.setVisible(key === 'LACTANCIA');
+                                    }
+                                }),
+                                new sap.m.Label({ text: 'Trabajo / Cargo *' }),
+                                new sap.m.Select({
+                                    id: 'ePermJob',
+                                    items: [new sap.ui.core.Item({ key: "", text: "Cargando..." })]
+                                }),
+                                new sap.m.Label({ text: 'Fecha Inicio *' }),
+                                new sap.m.DatePicker({
+                                    id: 'ePermIni',
+                                    placeholder: 'Seleccione fecha de inicio'
+                                }),
+                                new sap.m.Label({ text: 'Fecha Fin ' }),
+                                new sap.m.DatePicker({
+                                    id: 'ePermFin',
+                                    placeholder: 'Seleccione fecha de fin'
+                                }),
+                                new sap.m.VBox({
+                                    id: 'eLactBox',
+                                    visible: false,
+                                    items: [
+                                        new sap.m.Label({ text: 'Modo de Lactancia *' }),
+                                        new sap.m.Select({
+                                            id: 'eLacModo',
+                                            selectedKey: 'INICIO',
+                                            items: [
+                                                new sap.ui.core.Item({ key: 'INICIO', text: 'INICIO' }),
+                                                new sap.ui.core.Item({ key: 'FIN', text: 'FIN' })
+                                            ]
+                                        })
+                                    ]
+                                })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Guardar',
+                        type: 'Emphasized',
+                        press: function () {
+                            const tipo = sap.ui.getCore().byId('ePermTipo').getSelectedKey();
+                            const jobId = sap.ui.getCore().byId('ePermJob').getSelectedKey();
+                            const ini = formatDateForAPI(sap.ui.getCore().byId('ePermIni').getValue());
+                            const fin = formatDateForAPI(sap.ui.getCore().byId('ePermFin').getValue());
+
+                            if (!tipo || !ini) {
+                                showError('Por favor complete los campos requeridos: Tipo y Fecha Inicio');
+                                return;
+                            }
+
+                            if (!jobId) {
+                                showError('Debe seleccionar un Trabajo/Cargo para el permiso');
+                                return;
+                            }
+
+                            const qs = new URLSearchParams();
+                            qs.append('id', permData.id);
+                            qs.append('permissionType', tipo);
+                            qs.append('fechaini', ini);
+                            qs.append('jobassignmentId', jobId);
+                            if (fin) {
+                                qs.append('fechafin', fin);
+                            }
+
+                            console.log('Actualizando permiso:', {
+                                id: permData.id,
+                                tipo: tipo,
+                                fechaini: ini,
+                                fechafin: fin,
+                                jobId: jobId
+                            });
+
+                            fetch('/asistenciaV2r/api/permissions', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: qs.toString(),
+                                credentials: 'include'
+                            })
+                                .then(r => {
+                                    const ct = r.headers.get('content-type') || '';
+                                    if (!r.ok || ct.indexOf('application/json') === -1) {
+                                        return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                                    }
+                                    return r.json();
+                                })
+                                .then(j => {
+                                    if (j.success) {
+                                        // Si es lactancia, actualizar programación
+                                        if (tipo === 'LACTANCIA') {
+                                            const modo = sap.ui.getCore().byId('eLacModo').getSelectedKey();
+                                            const sq = new URLSearchParams();
+                                            sq.append('permissionId', permData.id);
+                                            sq.append('modo', modo);
+
+                                            fetch('/asistenciaV2r/api/lactation-schedules', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                                body: sq.toString(),
+                                                credentials: 'include'
+                                            })
+                                                .then(r2 => {
+                                                    const ct2 = r2.headers.get('content-type') || '';
+                                                    if (!r2.ok || ct2.indexOf('application/json') === -1) {
+                                                        return r2.text().then(t => { throw new Error('Respuesta no JSON (' + r2.status + '): ' + t.slice(0, 200)); });
+                                                    }
+                                                    return r2.json();
+                                                })
+                                                .then(j2 => {
+                                                    if (j2.success) {
+                                                        showSuccess('Permiso y programación actualizados exitosamente');
+                                                    } else {
+                                                        showError('Permiso actualizado pero error en programación', j2.message);
+                                                    }
+                                                    loadUserPermissions(userData.id, userData);
+                                                    ed.close();
+                                                })
+                                                .catch(e => {
+                                                    showError('Permiso actualizado pero error en programación', e.message);
+                                                    loadUserPermissions(userData.id, userData);
+                                                    ed.close();
+                                                });
+                                        } else {
+                                            showSuccess(j.message || 'Permiso actualizado exitosamente');
+                                            loadUserPermissions(userData.id, userData);
+                                            ed.close();
+                                        }
+                                    } else {
+                                        showError('Error actualizando permiso', j.message || 'Error desconocido');
+                                    }
+                                })
+                                .catch(e => showError('Error actualizando permiso', e.message));
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () {
+                            ed.close();
+                        }
+                    })
+                });
+
+                // Cargar tipos de permisos y establecer valores actuales
+                fetch('/asistenciaV2r/api/permission-types', { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        const sel = sap.ui.getCore().byId('ePermTipo');
+                        sel.removeAllItems();
+                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un tipo' }));
+                        (Array.isArray(list) ? list : []).forEach(t => {
+                            sel.addItem(new sap.ui.core.Item({
+                                key: String(t.codigo),
+                                text: t.descripcion || t.codigo
+                            }));
+                        });
+                        // Establecer el valor actual
+                        if (permData.codigo) {
+                            sel.setSelectedKey(permData.codigo);
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Error cargando tipos de permisos:', e);
+                    });
+
+                // Cargar trabajos del usuario
+                const jobSel = sap.ui.getCore().byId('ePermJob');
+                jobSel.setBusy(true);
+                fetch('/asistenciaV2r/api/jobassignments?userId=' + userData.id, { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        jobSel.setBusy(false);
+                        jobSel.removeAllItems();
+                        const activeJobs = (Array.isArray(list) ? list : []).filter(j => j.estado === 1);
+                        if (activeJobs.length > 0) {
+                            jobSel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un trabajo' }));
+                            activeJobs.forEach(j => {
+                                const text = `${j.cargo} - ${j.area || ''} (${j.modalidad})`;
+                                jobSel.addItem(new sap.ui.core.Item({ key: j.id, text: text }));
+                            });
+                            // Establecer el valor actual si existe
+                            if (permData.jobassignment_id) {
+                                jobSel.setSelectedKey(String(permData.jobassignment_id));
+                            }
+                        } else {
+                            jobSel.addItem(new sap.ui.core.Item({ key: '', text: 'No tiene trabajos activos asignados' }));
+                        }
+                    })
+                    .catch(e => {
+                        jobSel.setBusy(false);
+                        console.error('Error cargando trabajos:', e);
+                        jobSel.removeAllItems();
+                        jobSel.addItem(new sap.ui.core.Item({ key: '', text: 'Error al cargar trabajos' }));
+                    });
+
+                // Establecer fechas actuales
+                if (permData.fechaini) {
+                    try {
+                        let fechaIni = permData.fechaini;
+                        if (typeof fechaIni === 'number' || /^\d+$/.test(String(fechaIni))) {
+                            const timestamp = parseInt(String(fechaIni));
+                            const timestampMs = timestamp > 9999999999 ? timestamp : timestamp * 1000;
+                            fechaIni = new Date(timestampMs).toISOString().split('T')[0];
+                        } else if (typeof fechaIni === 'string' && fechaIni.includes('-')) {
+                            fechaIni = fechaIni.split('T')[0];
+                        }
+                        sap.ui.getCore().byId('ePermIni').setValue(fechaIni);
+                    } catch (e) {
+                        console.error('Error estableciendo fecha inicio:', e);
+                    }
+                }
+
+                if (permData.fechafin) {
+                    try {
+                        let fechaFin = permData.fechafin;
+                        if (typeof fechaFin === 'number' || /^\d+$/.test(String(fechaFin))) {
+                            const timestamp = parseInt(String(fechaFin));
+                            const timestampMs = timestamp > 9999999999 ? timestamp : timestamp * 1000;
+                            fechaFin = new Date(timestampMs).toISOString().split('T')[0];
+                        } else if (typeof fechaFin === 'string' && fechaFin.includes('-')) {
+                            fechaFin = fechaFin.split('T')[0];
+                        }
+                        sap.ui.getCore().byId('ePermFin').setValue(fechaFin);
+                    } catch (e) {
+                        console.error('Error estableciendo fecha fin:', e);
+                    }
+                }
+
+                // Si es lactancia, cargar el modo
+                if (permData.codigo === 'LACTANCIA') {
+                    const lactBox = sap.ui.getCore().byId('eLactBox');
+                    if (lactBox) {
+                        lactBox.setVisible(true);
+                    }
+
+                    // Cargar el modo desde lactation_schedules
+                    if (permData.modo) {
+                        const modoSel = sap.ui.getCore().byId('eLacModo');
+                        if (modoSel) {
+                            modoSel.setSelectedKey(permData.modo);
+                        }
+                    }
+                }
+
+
+                ed.attachAfterClose(function () {
+                    try {
+                        ed.destroy();
+                    } catch (e) {
+                        console.error('Error destroying edit permission dialog:', e);
+                    }
+                });
+
+                ed.open();
+            }
+
+            // Función para eliminar permiso
+            function deletePermission(permId, userData) {
+                const confirmDlg = new sap.m.Dialog({
+                    title: 'Confirmar Eliminación',
+                    content: [
+                        new sap.m.Text({ text: '¿Está seguro que desea eliminar este permiso?' })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Eliminar',
+                        type: 'Emphasized',
+                        press: function () {
+                            const qs = new URLSearchParams();
+                            qs.append('id', permId);
+                            qs.append('estado', '0');
+
+                            fetch('/asistenciaV2r/api/permissions', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: qs.toString(),
+                                credentials: 'include'
+                            })
+                                .then(r => {
+                                    const ct = r.headers.get('content-type') || '';
+                                    if (!r.ok || ct.indexOf('application/json') === -1) {
+                                        return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                                    }
+                                    return r.json();
+                                })
+                                .then(j => {
+                                    if (j.success) {
+                                        showSuccess(j.message || 'Permiso eliminado exitosamente');
+                                        loadUserPermissions(userData.id, userData);
+                                    } else {
+                                        showError('Error eliminando permiso', j.message || 'Error desconocido');
+                                    }
+                                    confirmDlg.close();
+                                })
+                                .catch(e => {
+                                    showError('Error eliminando permiso', e.message);
+                                    confirmDlg.close();
+                                });
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () {
+                            confirmDlg.close();
+                        }
+                    })
+                });
+
+                confirmDlg.attachAfterClose(function () {
+                    try {
+                        confirmDlg.destroy();
+                    } catch (e) {
+                        console.error('Error destroying confirm dialog:', e);
+                    }
+                });
+
+                confirmDlg.open();
+            }
+
+            // Función para abrir el diálogo de nuevo permiso
+            function openNewPermissionDialog(userData) {
+                const pd = new sap.m.Dialog({
+                    title: 'Nuevo Permiso - ' + (userData.nombre || userData.dni),
+                    contentWidth: '700px',
+                    resizable: true,
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'Tipo de Permiso *' }),
+                                new sap.m.Select({
+                                    id: 'permTipo',
+                                    change: function () {
+                                        const key = sap.ui.getCore().byId('permTipo').getSelectedKey();
+                                        const box = sap.ui.getCore().byId('lactBox');
+                                        if (box) box.setVisible(key === 'LACTANCIA');
+                                    }
+                                }),
+                                new sap.m.Label({ text: 'Trabajo / Cargo *' }),
+                                new sap.m.Select({
+                                    id: 'permJob',
+                                    items: [new sap.ui.core.Item({ key: "", text: "Cargando..." })]
+                                }),
+                                new sap.m.Label({ text: 'Fecha Inicio *' }),
+                                new sap.m.DatePicker({
+                                    id: 'permIni',
+                                    placeholder: 'Seleccione fecha de inicio'
+                                }),
+                                new sap.m.Label({ text: 'Fecha Fin ' }),
+                                new sap.m.DatePicker({
+                                    id: 'permFin',
+                                    placeholder: 'Seleccione fecha de fin'
+                                }),
+                                new sap.m.VBox({
+                                    id: 'lactBox',
+                                    visible: false,
+                                    items: [
+                                        new sap.m.Label({ text: 'Modo de Lactancia *' }),
+                                        new sap.m.Select({
+                                            id: 'lacModo',
+                                            selectedKey: 'INICIO',
+                                            items: [
+                                                new sap.ui.core.Item({ key: 'INICIO', text: 'INICIO' }),
+                                                new sap.ui.core.Item({ key: 'FIN', text: 'FIN' })
+                                            ]
+                                        })
+                                    ]
+                                })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Crear',
+                        type: 'Emphasized',
+                        press: function () {
+                            // Validación de campos requeridos
+                            const tipo = sap.ui.getCore().byId('permTipo').getSelectedKey();
+                            const ini = sap.ui.getCore().byId('permIni').getValue();
+
+                            const jobId = sap.ui.getCore().byId('permJob').getSelectedKey();
+                            console.log('Permission creation - tipo:', tipo, 'ini:', ini, 'jobId:', jobId, 'userData.id:', userData.id);
+
+                            if (!tipo || !ini) {
+                                showError('Por favor complete los campos requeridos: Tipo y Fecha Inicio');
+                                return;
+                            }
+
+                            if (!jobId) {
+                                showError('Debe seleccionar un Trabajo/Cargo para el permiso');
+                                return;
+                            }
+
+                            // Validate and format dates
+                            const formattedIni = formatDateForAPI(ini);
+                            if (!formattedIni) {
+                                showError('La fecha de inicio no es válida');
+                                return;
+                            }
+
+                            const qs = new URLSearchParams();
+                            qs.append('userId', userData.id);
+                            qs.append('permissionType', tipo);
+                            qs.append('fechaini', formattedIni);
+                            qs.append('jobassignmentId', jobId);
+
+                            const fin = sap.ui.getCore().byId('permFin').getValue();
+                            if (fin) {
+                                const formattedFin = formatDateForAPI(fin);
+                                if (formattedFin) {
+                                    qs.append('fechafin', formattedFin);
+                                }
+                            }
+
+                            fetch('/asistenciaV2r/api/permissions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: qs.toString(),
+                                credentials: 'include'
+                            })
+                                .then(r => {
+                                    const ct = r.headers.get('content-type') || '';
+                                    if (!r.ok || ct.indexOf('application/json') === -1) {
+                                        return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                                    }
+                                    return r.json();
+                                })
+                                .then(j => {
+                                    if (!j.success) {
+                                        showError('Error creando permiso', j.message || 'Error desconocido');
+                                        return;
+                                    }
+
+                                    // Si es lactancia, crear programación adicional
+                                    if (tipo === 'LACTANCIA' && j.id) {
+                                        const sq = new URLSearchParams();
+                                        sq.append('permissionId', j.id);
+                                        sq.append('modo', sap.ui.getCore().byId('lacModo').getSelectedKey());
+
+                                        fetch('/asistenciaV2r/api/lactation-schedules', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                            body: sq.toString(),
+                                            credentials: 'include'
+                                        })
+                                            .then(r2 => {
+                                                const ct2 = r2.headers.get('content-type') || '';
+                                                if (!r2.ok || ct2.indexOf('application/json') === -1) {
+                                                    return r2.text().then(t => { throw new Error('Respuesta no JSON (' + r2.status + '): ' + t.slice(0, 200)); });
+                                                }
+                                                return r2.json();
+                                            })
+                                            .then(j2 => {
+                                                if (j2.success) {
+                                                    showSuccess(j2.message || 'Programación de lactancia creada');
+                                                } else {
+                                                    showError('Error creando programación de lactancia', j2.message);
+                                                }
+                                            })
+                                            .catch(e => showError('Error creando programación de lactancia', e.message));
+                                    }
+
+                                    // Recargar permisos
+                                    loadUserPermissions(userData.id, userData);
+                                    pd.close();
+                                    showSuccess(j.message || 'Permiso creado exitosamente');
+                                })
+                                .catch(e => showError('Error creando permiso', e.message));
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () {
+                            pd.close();
+                        }
+                    })
+                });
+
+                // Cargar tipos de permisos disponibles
+                fetch('/asistenciaV2r/api/permission-types', { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        const sel = sap.ui.getCore().byId('permTipo');
+                        sel.removeAllItems();
+                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un tipo' }));
+                        (Array.isArray(list) ? list : []).forEach(t => {
+                            sel.addItem(new sap.ui.core.Item({
+                                key: String(t.codigo),
+                                text: t.descripcion || t.codigo
+                            }));
+                        });
+                    })
+                    .catch(e => {
+                        console.error('Error cargando tipos de permisos:', e);
+                        showError('No se pudieron cargar los tipos de permisos');
+                    });
+
+                // Cargar trabajos del usuario
+                const jobSel = sap.ui.getCore().byId('permJob');
+                jobSel.setBusy(true);
+                fetch('/asistenciaV2r/api/jobassignments?userId=' + userData.id, { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        jobSel.setBusy(false);
+                        jobSel.removeAllItems();
+                        const activeJobs = (Array.isArray(list) ? list : []).filter(j => j.estado === 1);
+                        if (activeJobs.length > 0) {
+                            jobSel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un trabajo' }));
+                            activeJobs.forEach(j => {
+                                const text = `${j.cargo} - ${j.area || ''} (${j.modalidad})`;
+                                jobSel.addItem(new sap.ui.core.Item({ key: j.id, text: text }));
+                            });
+                        } else {
+                            jobSel.addItem(new sap.ui.core.Item({ key: '', text: 'No tiene trabajos activos asignados' }));
+                        }
+                    })
+                    .catch(e => {
+                        jobSel.setBusy(false);
+                        console.error('Error cargando trabajos:', e);
+                        jobSel.removeAllItems();
+                        jobSel.addItem(new sap.ui.core.Item({ key: '', text: 'Error al cargar trabajos' }));
+                    });
+
+                pd.attachAfterClose(function () {
+                    try {
+                        pd.destroy();
+                    } catch (e) {
+                        console.error('Error destroying permission dialog:', e);
+                    }
+                });
+
+                pd.open();
+            }
+
+            function openCreateDialog() {
+                const dlg = new sap.m.Dialog({
+                    title: 'Nuevo Usuario',
+                    contentWidth: '400px',
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'DNI *' }),
+                                new sap.m.Input({
+                                    id: 'uDni',
+                                    placeholder: 'Ingrese DNI del usuario',
+                                    type: 'Number'
+                                }),
+                                new sap.m.Label({ text: 'Nombre *' }),
+                                new sap.m.Input({
+                                    id: 'uNombre',
+                                    placeholder: 'Ingrese nombre del usuario'
+                                }),
+                                new sap.m.Label({ text: 'Apellidos *' }),
+                                new sap.m.Input({
+                                    id: 'uApellidos',
+                                    placeholder: 'Ingrese apellidos del usuario'
+                                }),
+                                new sap.m.Label({ text: 'Email *' }),
+                                new sap.m.Input({
+                                    id: 'uEmail',
+                                    placeholder: 'usuario@ejemplo.com',
+                                    type: 'Email'
+                                }),
+                                new sap.m.Label({ text: 'Contraseña *' }),
+                                new sap.m.Input({
+                                    id: 'uPass',
+                                    type: 'Password',
+                                    placeholder: 'Mínimo 6 caracteres'
+                                }),
+                                new sap.m.Label({ text: 'Rol *' }),
+                                new sap.m.Select({
+                                    id: 'uRolSel',
+                                    selectedKey: 'USER',
+                                    items: [
+                                        new sap.ui.core.Item({ key: 'ADMIN', text: 'ADMINISTRADOR' }),
+                                        new sap.ui.core.Item({ key: 'USER', text: 'USUARIO' })
+                                    ]
+                                })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Crear',
+                        type: 'Emphasized',
+                        press: function () {
+                            // Validación de campos requeridos
+                            const requiredFields = [
+                                { id: 'uDni', label: 'DNI' },
+                                { id: 'uNombre', label: 'Nombre' },
+                                { id: 'uApellidos', label: 'Apellidos' },
+                                { id: 'uEmail', label: 'Email' },
+                                { id: 'uPass', label: 'Contraseña' }
+                            ];
+
+                            if (!validateRequiredFields(requiredFields)) {
+                                return;
+                            }
+
+                            // Validación de email eliminada
+                            const email = sap.ui.getCore().byId('uEmail').getValue();
+                            /*  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                              if (!emailRegex.test(email)) {
+                                  showError('Por favor ingrese un email válido');
+                                  return;
+                              }*/
+
+                            // Validación de contraseña
+                            const password = sap.ui.getCore().byId('uPass').getValue();
+                            if (password.length < 6) {
+                                showError('La contraseña debe tener al menos 6 caracteres');
+                                return;
+                            }
+
+                            const qs = new URLSearchParams();
+                            qs.append('dni', sap.ui.getCore().byId('uDni').getValue().trim());
+                            qs.append('nombre', sap.ui.getCore().byId('uNombre').getValue().trim());
+                            qs.append('apellidos', sap.ui.getCore().byId('uApellidos').getValue().trim());
+                            qs.append('email', email.trim());
+                            qs.append('password', password);
+                            qs.append('rol', sap.ui.getCore().byId('uRolSel').getSelectedKey());
+
+                            fetch('/asistenciaV2r/api/users', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: qs.toString(),
+                                credentials: 'include'
+                            })
+                                .then(r => {
+                                    const ct = r.headers.get('content-type') || '';
+                                    if (!r.ok || ct.indexOf('application/json') === -1) {
+                                        return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                                    }
+                                    return r.json();
+                                })
+                                .then(j => {
+                                    if (j.success) {
+                                        showSuccess(j.message || 'Usuario creado exitosamente');
+                                        loadUsers();
+                                        dlg.close();
+                                    } else {
+                                        showError('Error creando usuario', j.message || 'Error desconocido');
+                                    }
+                                })
+                                .catch(e => showError('Error creando usuario', e.message));
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () {
+                            dlg.close();
+                        }
+                    })
+                });
+
+                dlg.attachAfterClose(function () {
+                    try {
+                        dlg.destroy();
+                    } catch (e) {
+                        console.error('Error destroying create dialog:', e);
+                    }
+                });
+
+                dlg.open();
+            }
+
+            // Función para recargar asignaciones de trabajo
+            function loadJobAssignments(userId) {
+                const tbl = sap.ui.getCore().byId('jaTable');
+                if (!tbl) {
+                    console.warn('Job assignments table not found');
+                    return;
+                }
+
+                fetch('/asistenciaV2r/api/jobassignments?userId=' + userId, { credentials: 'include' })
+                    .then(r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!r.ok || ct.indexOf('application/json') === -1) {
+                            return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                        }
+                        return r.json();
+                    })
+                    .then(list => {
+                        // Filtrar solo las asignaciones activas (estado != 0)
+                        const activeList = (Array.isArray(list) ? list : []).filter(item => {
+                            return item.estado !== 0 && item.estado !== '0';
+                        });
+                        const model = new sap.ui.model.json.JSONModel({ items: activeList });
+                        tbl.setModel(model);
+                        sap.m.MessageToast.show('Asignaciones actualizadas');
+                    })
+                    .catch(e => {
+                        console.error('Error loading job assignments:', e);
+                        sap.m.MessageToast.show('Error al cargar asignaciones: ' + e.message);
+                    });
+            }
+
+            // Función para editar asignación de trabajo
+            function openEditJobAssignmentDialog(assignment) {
+                let workSchedulesLoaded = false;
+                let updateButton = null;
+
+                const ad = new sap.m.Dialog({
+                    title: 'Editar Asignación de Trabajo',
+                    contentWidth: '500px',
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'Modalidad *' }),
+                                new sap.m.Input({ id: 'ejaModalidad', value: assignment.modalidad || '', placeholder: 'Ej: CONTRATO' }),
+                                new sap.m.Label({ text: 'Cargo *' }),
+                                new sap.m.Input({ id: 'ejaCargo', value: assignment.cargo || '' }),
+                                new sap.m.Label({ text: 'Área *' }),
+                                new sap.m.Input({ id: 'ejaArea', value: assignment.area || '' }),
+                                new sap.m.Label({ text: 'Equipo (opcional)' }),
+                                new sap.m.Input({ id: 'ejaEquipo', value: assignment.equipo || '' }),
+                                new sap.m.Label({ text: 'Jefe (opcional)' }),
+                                new sap.m.Input({ id: 'ejaJefe', value: assignment.jefe || '' }),
+                                new sap.m.Label({ text: 'Fecha Inicio *' }),
+                                new sap.m.DatePicker({ id: 'ejaFechaini', value: formatDateForDisplay(assignment.fechaini), displayFormat: 'dd/MM/yyyy' }),
+                                new sap.m.Label({ text: 'Fecha Fin' }),
+                                new sap.m.DatePicker({ id: 'ejaFechafin', value: formatDateForDisplay(assignment.fechafin), displayFormat: 'dd/MM/yyyy' }),
+                                new sap.m.Label({ text: 'Salario' }),
+                                new sap.m.Input({ id: 'ejaSalario', value: assignment.salario || '', type: 'Number' }),
+                                new sap.m.Label({ text: 'Horario *' }),
+                                new sap.m.HBox({
+                                    items: [
+                                        new sap.m.Select({ id: 'ejaWS', width: '75%' }),
+                                        new sap.m.Button({
+                                            text: 'Nuevo Horario',
+                                            type: 'Transparent',
+                                            icon: 'sap-icon://add',
+                                            width: '25%',
+                                            press: function () {
+                                                openCreateWorkscheduleDialog(function (newWorkscheduleId) {
+                                                    // Recargar los horarios y seleccionar el nuevo
+                                                    reloadWorkschedulesInEditDialog(newWorkscheduleId);
+                                                });
+                                            }
+                                        })
+                                    ]
+                                })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Actualizar',
+                        type: 'Emphasized',
+                        enabled: false, // Deshabilitado hasta que carguen los horarios
+                        press: function () {
+                            // Validar campos requeridos
+                            const modalidad = sap.ui.getCore().byId('ejaModalidad').getValue();
+                            const cargo = sap.ui.getCore().byId('ejaCargo').getValue();
+                            const area = sap.ui.getCore().byId('ejaArea').getValue();
+                            const equipo = sap.ui.getCore().byId('ejaEquipo').getValue();
+                            const jefe = sap.ui.getCore().byId('ejaJefe').getValue();
+                            const fechaini = formatDateForAPI(sap.ui.getCore().byId('ejaFechaini').getValue());
+                            const workscheduleId = sap.ui.getCore().byId('ejaWS').getSelectedKey();
+
+                            if (!modalidad || !cargo || !area || !fechaini) {
+                                sap.m.MessageToast.show('Por favor complete todos los campos requeridos');
+                                return;
+                            }
+
+                            if (!workscheduleId) {
+                                sap.m.MessageToast.show('Por favor seleccione un horario');
+                                return;
+                            }
+
+                            const qs = new URLSearchParams();
+                            qs.append('action', 'update');
+                            qs.append('id', assignment.id);
+                            qs.append('userId', assignment.userId);
+                            qs.append('modalidad', modalidad);
+                            qs.append('cargo', cargo);
+                            qs.append('area', area);
+
+                            // Campos opcionales: solo enviar si tienen valor
+                            if (equipo && equipo.trim() !== '') {
+                                qs.append('equipo', equipo.trim());
+                            }
+                            if (jefe && jefe.trim() !== '') {
+                                qs.append('jefe', jefe.trim());
+                            }
+                            qs.append('fechaini', fechaini);
+                            qs.append('fechafin', formatDateForAPI(sap.ui.getCore().byId('ejaFechafin').getValue()));
+                            qs.append('salario', sap.ui.getCore().byId('ejaSalario').getValue());
+                            qs.append('workscheduleId', workscheduleId);
+                            //  qs.append('horaini', sap.ui.getCore().byId('ejaHoraini').getValue());
+                            //  qs.append('horafin', sap.ui.getCore().byId('ejaHorafin').getValue());
+
+                            fetch('/asistenciaV2r/api/jobassignments', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: qs.toString(),
+                                credentials: 'include'
+                            })
+                                .then(r => {
+                                    const ct = r.headers.get('content-type') || '';
+                                    if (!r.ok || ct.indexOf('application/json') === -1) {
+                                        return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                                    }
+                                    return r.json();
+                                })
+                                .then(j => {
+                                    if (j.success) {
+                                        sap.m.MessageToast.show(j.message || 'Asignación actualizada');
+                                        ad.close();
+                                        loadJobAssignments(assignment.userId);
+                                    } else {
+                                        sap.m.MessageToast.show(j.message || 'Error al actualizar');
+                                    }
+                                })
+                                .catch(e => sap.m.MessageToast.show('Error: ' + e.message));
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () { ad.close(); }
+                    })
+                });
+
+                // Guardar referencia al botón de actualizar
+                updateButton = ad.getBeginButton();
+
+                // Cargar horarios disponibles
+                fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        const sel = sap.ui.getCore().byId('ejaWS');
+                        sel.removeAllItems();
+                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un horario' }));
+                        (Array.isArray(list) ? list : []).forEach(ws => {
+                            sel.addItem(new sap.ui.core.Item({
+                                key: String(ws.id),
+                                text: ws.descripcion
+                            }));
+                        });
+                        // Seleccionar el horario actual
+                        if (assignment.workschedule_id) {
+                            sel.setSelectedKey(String(assignment.workschedule_id));
+                        }
+                        // Habilitar el botón de actualizar después de cargar los horarios
+                        workSchedulesLoaded = true;
+                        if (updateButton) {
+                            updateButton.setEnabled(true);
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Error cargando horarios:', e);
+                        sap.m.MessageToast.show('Error al cargar los horarios disponibles');
+                        // Habilitar el botón de todos modos para permitir reintentos
+                        if (updateButton) {
+                            updateButton.setEnabled(true);
+                        }
+                    });
+
+                ad.attachAfterClose(function () { try { ad.destroy(); } catch (e) { } });
+                ad.open();
+            }
+
+            // Función para recargar horarios en el diálogo de edición
+            function reloadWorkschedulesInEditDialog(selectedId) {
+                fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        const sel = sap.ui.getCore().byId('ejaWS');
+                        sel.removeAllItems();
+                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un horario' }));
+                        (Array.isArray(list) ? list : []).forEach(ws => {
+                            sel.addItem(new sap.ui.core.Item({
+                                key: String(ws.id),
+                                text: ws.descripcion
+                            }));
+                        });
+                        // Seleccionar el ID proporcionado o mantener el actual
+                        if (selectedId) {
+                            sel.setSelectedKey(String(selectedId));
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Error recargando horarios:', e);
+                        sap.m.MessageToast.show('Error al recargar los horarios');
+                    });
+            }
+
+            // Función para crear nuevo horario (desde el diálogo de edición)
+            function openCreateWorkscheduleDialog(callback) {
+                const dialog = new sap.m.Dialog({
+                    title: 'Crear Nuevo Horario',
+                    contentWidth: '400px',
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'Descripción *' }),
+                                new sap.m.Input({ id: 'wsDescripcion', placeholder: 'Ej: de 08:00-16:45' }),
+                                new sap.m.Label({ text: 'Hora Inicio *' }),
+                                new sap.m.TimePicker({ id: 'wsHoraini', displayFormat: 'HH:mm', placeholder: '08:00', valueFormat: 'HH:mm' }),
+                                new sap.m.Label({ text: 'Hora Fin *' }),
+                                new sap.m.TimePicker({ id: 'wsHorafin', displayFormat: 'HH:mm', placeholder: '16:45', valueFormat: 'HH:mm' })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Crear',
+                        type: 'Emphasized',
+                        press: function () {
+                            const descripcion = sap.ui.getCore().byId('wsDescripcion').getValue();
+                            const horaini = sap.ui.getCore().byId('wsHoraini').getValue();
+                            const horafin = sap.ui.getCore().byId('wsHorafin').getValue();
+
+                            if (!descripcion || !horaini || !horafin) {
+                                sap.m.MessageToast.show('Por favor complete todos los campos requeridos');
+                                return;
+                            }
+
+                            // Validar que el horario no esté duplicado
+                            fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                                .then(r => r.json())
+                                .then(list => {
+                                    // Verificar si ya existe un horario con la misma hora inicio y fin
+                                    const duplicate = (Array.isArray(list) ? list : []).find(ws =>
+                                        ws.horaini === horaini && ws.horafin === horafin
+                                    );
+
+                                    if (duplicate) {
+                                        sap.m.MessageToast.show('Ya existe un horario con hora inicio ' + horaini + ' y hora fin ' + horafin);
+                                        return;
+                                    }
+
+                                    // Si no hay duplicado, crear el horario
+                                    const qs = new URLSearchParams();
+                                    qs.append('action', 'create');
+                                    qs.append('descripcion', descripcion);
+                                    qs.append('horaini', horaini);
+                                    qs.append('horafin', horafin);
+
+                                    fetch('/asistenciaV2r/api/workschedules', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                        body: qs.toString(),
+                                        credentials: 'include'
+                                    })
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (data.success) {
+                                                sap.m.MessageToast.show(data.message || 'Horario creado exitosamente');
+                                                dialog.close();
+                                                if (callback && data.id) {
+                                                    callback(data.id);
+                                                }
+                                            } else {
+                                                sap.m.MessageToast.show(data.message || 'Error al crear horario');
+                                            }
+                                        })
+                                        .catch(e => {
+                                            console.error('Error creando horario:', e);
+                                            sap.m.MessageToast.show('Error: ' + e.message);
+                                        });
+                                })
+                                .catch(e => {
+                                    console.error('Error validando horarios:', e);
+                                    sap.m.MessageToast.show('Error al validar horarios: ' + e.message);
+                                });
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () { dialog.close(); }
+                    })
+                });
+
+                dialog.attachAfterClose(function () { try { dialog.destroy(); } catch (e) { } });
+                dialog.open();
+            }
+
+            // Función para crear nuevo horario (desde el diálogo de asignación)
+            function openCreateWorkscheduleDialogInAssign(callback) {
+                const dialog = new sap.m.Dialog({
+                    title: 'Crear Nuevo Horario',
+                    contentWidth: '400px',
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'Descripción *' }),
+                                new sap.m.Input({ id: 'wsDescripcionAssign', placeholder: 'Ej: de 08:00-16:45' }),
+                                new sap.m.Label({ text: 'Hora Inicio *' }),
+                                new sap.m.TimePicker({ id: 'wsHorainiAssign', displayFormat: 'HH:mm', placeholder: '08:00', valueFormat: 'HH:mm' }),
+                                new sap.m.Label({ text: 'Hora Fin *' }),
+                                new sap.m.TimePicker({ id: 'wsHorafinAssign', displayFormat: 'HH:mm', placeholder: '16:45', valueFormat: 'HH:mm' })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Crear',
+                        type: 'Emphasized',
+                        press: function () {
+                            const descripcion = sap.ui.getCore().byId('wsDescripcionAssign').getValue();
+                            const horaini = sap.ui.getCore().byId('wsHorainiAssign').getValue();
+                            const horafin = sap.ui.getCore().byId('wsHorafinAssign').getValue();
+
+                            if (!descripcion || !horaini || !horafin) {
+                                sap.m.MessageToast.show('Por favor complete todos los campos requeridos');
+                                return;
+                            }
+
+                            // Validar que el horario no esté duplicado
+                            fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                                .then(r => r.json())
+                                .then(list => {
+                                    // Verificar si ya existe un horario con la misma hora inicio y fin
+                                    const duplicate = (Array.isArray(list) ? list : []).find(ws =>
+                                        ws.horaini === horaini && ws.horafin === horafin
+                                    );
+
+                                    if (duplicate) {
+                                        sap.m.MessageToast.show('Ya existe un horario con hora inicio ' + horaini + ' y hora fin ' + horafin);
+                                        return;
+                                    }
+
+                                    // Si no hay duplicado, crear el horario
+                                    const qs = new URLSearchParams();
+                                    qs.append('action', 'create');
+                                    qs.append('descripcion', descripcion);
+                                    qs.append('horaini', horaini);
+                                    qs.append('horafin', horafin);
+
+                                    fetch('/asistenciaV2r/api/workschedules', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                        body: qs.toString(),
+                                        credentials: 'include'
+                                    })
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (data.success) {
+                                                sap.m.MessageToast.show(data.message || 'Horario creado exitosamente');
+                                                dialog.close();
+                                                if (callback && data.id) {
+                                                    callback(data.id);
+                                                }
+                                            } else {
+                                                sap.m.MessageToast.show(data.message || 'Error al crear horario');
+                                            }
+                                        })
+                                        .catch(e => {
+                                            console.error('Error creando horario:', e);
+                                            sap.m.MessageToast.show('Error: ' + e.message);
+                                        });
+                                })
+                                .catch(e => {
+                                    console.error('Error validando horarios:', e);
+                                    sap.m.MessageToast.show('Error al validar horarios: ' + e.message);
+                                });
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () { dialog.close(); }
+                    })
+                });
+
+                dialog.attachAfterClose(function () { try { dialog.destroy(); } catch (e) { } });
+                dialog.open();
+            }
+
+            // Función para recargar horarios en el diálogo de asignación
+            function reloadWorkschedulesInAssignDialog(selectedId) {
+                fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        const sel = sap.ui.getCore().byId('jaWS');
+                        if (!sel) return;
+                        sel.removeAllItems();
+                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un horario' }));
+                        (Array.isArray(list) ? list : []).forEach(ws => {
+                            const descripcion = ws.descripcion || 'Horario ' + ws.id;
+                            const horaini = ws.horaini || '';
+                            const horafin = ws.horafin || '';
+                            const displayText = descripcion + ' (de ' + horaini + '-' + horafin + ')';
+                            sel.addItem(new sap.ui.core.Item({
+                                key: String(ws.id),
+                                text: displayText
+                            }));
+                        });
+                        // Seleccionar el ID proporcionado
+                        if (selectedId) {
+                            sel.setSelectedKey(String(selectedId));
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Error recargando horarios:', e);
+                        sap.m.MessageToast.show('Error al recargar los horarios');
+                    });
+            }
+
+            // Función para eliminar asignación de trabajo (soft delete - estado=0)
+            function deleteJobAssignment(assignment) {
+                // Usar confirm nativo de JavaScript en lugar de sap.m.MessageBox
+                if (!confirm('¿Está seguro de eliminar esta asignación de trabajo?')) {
+                    return;
+                }
+
+                // Usar soft delete: cambiar estado a 0 en lugar de eliminar físicamente
+                const qs = new URLSearchParams();
+                qs.append('action', 'update');
+                qs.append('id', assignment.id);
+                qs.append('userId', assignment.userId);
+                qs.append('modalidad', assignment.modalidad || '');
+                qs.append('cargo', assignment.cargo || '');
+                qs.append('area', assignment.area || '');
+                qs.append('workscheduleId', assignment.workschedule_id || '');
+                qs.append('estado', '0'); // Marcar como eliminado
+
+                // Campos opcionales
+                if (assignment.equipo) qs.append('equipo', assignment.equipo);
+                if (assignment.jefe) qs.append('jefe', assignment.jefe);
+                if (assignment.fechaini) qs.append('fechaini', formatDateForAPI(assignment.fechaini));
+                if (assignment.fechafin) qs.append('fechafin', formatDateForAPI(assignment.fechafin));
+                if (assignment.salario) qs.append('salario', assignment.salario);
+                if (assignment.observaciones) qs.append('observaciones', assignment.observaciones);
+
+                fetch('/asistenciaV2r/api/jobassignments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: qs.toString(),
+                    credentials: 'include'
+                })
+                    .then(r => {
+                        const ct = r.headers.get('content-type') || '';
+                        if (!r.ok || ct.indexOf('application/json') === -1) {
+                            return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0, 200)); });
+                        }
+                        return r.json();
+                    })
+                    .then(j => {
+                        if (j.success) {
+                            sap.m.MessageToast.show(j.message || 'Asignación eliminada');
+                            loadJobAssignments(assignment.userId);
+                        } else {
+                            sap.m.MessageToast.show(j.message || 'Error eliminando asignación');
+                        }
+                    })
+                    .catch(e => sap.m.MessageToast.show('Error: ' + e.message));
+            }
+
+            // Función auxiliar para formatear fechas para mostrar en DatePicker
+            function formatDateForDisplay(dateValue) {
+                if (!dateValue) return '';
+                try {
+                    let date;
+                    if (typeof dateValue === 'number' || /^\d+$/.test(String(dateValue))) {
+                        const timestamp = parseInt(String(dateValue));
+                        const timestampMs = timestamp > 9999999999 ? timestamp : timestamp * 1000;
+                        date = new Date(timestampMs);
+                    } else {
+                        date = new Date(dateValue);
+                    }
+
+                    if (isNaN(date.getTime())) {
+                        return '';
+                    }
+
+                    // Formato para DatePicker: YYYY-MM-DD
+                    return date.toISOString().split('T')[0];
+                } catch (e) {
+                    return '';
+                }
+            }
+
+            // Función para crear nuevo horario (desde el diálogo de Ver Trabajo)
+            function openCreateWorkscheduleDialogInVerTrabajo(callback) {
+                const dialog = new sap.m.Dialog({
+                    title: 'Crear Nuevo Horario',
+                    contentWidth: '400px',
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: 'Descripción *' }),
+                                new sap.m.Input({ id: 'wsDescripcionVerTrabajo', placeholder: 'Ej: de 08:00-16:45' }),
+                                new sap.m.Label({ text: 'Hora Inicio *' }),
+                                new sap.m.TimePicker({ id: 'wsHorainiVerTrabajo', displayFormat: 'HH:mm', placeholder: '08:00', valueFormat: 'HH:mm' }),
+                                new sap.m.Label({ text: 'Hora Fin *' }),
+                                new sap.m.TimePicker({ id: 'wsHorafinVerTrabajo', displayFormat: 'HH:mm', placeholder: '16:45', valueFormat: 'HH:mm' })
+                            ]
+                        })
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: 'Crear',
+                        type: 'Emphasized',
+                        press: function () {
+                            const descripcion = sap.ui.getCore().byId('wsDescripcionVerTrabajo').getValue();
+                            const horaini = sap.ui.getCore().byId('wsHorainiVerTrabajo').getValue();
+                            const horafin = sap.ui.getCore().byId('wsHorafinVerTrabajo').getValue();
+
+                            if (!descripcion || !horaini || !horafin) {
+                                sap.m.MessageToast.show('Por favor complete todos los campos requeridos');
+                                return;
+                            }
+
+                            // Validar que el horario no esté duplicado
+                            fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                                .then(r => r.json())
+                                .then(list => {
+                                    // Verificar si ya existe un horario con la misma hora inicio y fin
+                                    const duplicate = (Array.isArray(list) ? list : []).find(ws =>
+                                        ws.horaini === horaini && ws.horafin === horafin
+                                    );
+
+                                    if (duplicate) {
+                                        sap.m.MessageToast.show('Ya existe un horario con hora inicio ' + horaini + ' y hora fin ' + horafin);
+                                        return;
+                                    }
+
+                                    // Si no hay duplicado, crear el horario
+                                    const qs = new URLSearchParams();
+                                    qs.append('action', 'create');
+                                    qs.append('descripcion', descripcion);
+                                    qs.append('horaini', horaini);
+                                    qs.append('horafin', horafin);
+
+                                    fetch('/asistenciaV2r/api/workschedules', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                        body: qs.toString(),
+                                        credentials: 'include'
+                                    })
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (data.success) {
+                                                sap.m.MessageToast.show(data.message || 'Horario creado exitosamente');
+                                                dialog.close();
+                                                if (callback && data.id) {
+                                                    callback(data.id);
+                                                }
+                                            } else {
+                                                sap.m.MessageToast.show(data.message || 'Error al crear horario');
+                                            }
+                                        })
+                                        .catch(e => {
+                                            console.error('Error creando horario:', e);
+                                            sap.m.MessageToast.show('Error: ' + e.message);
+                                        });
+                                })
+                                .catch(e => {
+                                    console.error('Error validando horarios:', e);
+                                    sap.m.MessageToast.show('Error al validar horarios: ' + e.message);
+                                });
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: 'Cancelar',
+                        press: function () { dialog.close(); }
+                    })
+                });
+
+                dialog.attachAfterClose(function () { try { dialog.destroy(); } catch (e) { } });
+                dialog.open();
+            }
+
+            // Función para recargar horarios en el diálogo de Ver Trabajo
+            function reloadWorkschedulesInVerTrabajoDialog(selectedId) {
+                fetch('/asistenciaV2r/api/workschedules', { credentials: 'include' })
+                    .then(r => r.json())
+                    .then(list => {
+                        const sel = sap.ui.getCore().byId('jaWS');
+                        if (!sel) return;
+                        sel.removeAllItems();
+                        sel.addItem(new sap.ui.core.Item({ key: '', text: 'Seleccione un horario' }));
+                        (Array.isArray(list) ? list : []).forEach(ws => {
+                            const descripcion = ws.descripcion || 'Horario ' + ws.id;
+                            const horaini = ws.horaini || '';
+                            const horafin = ws.horafin || '';
+                            const displayText = descripcion + ' (de ' + horaini + '-' + horafin + ')';
+                            sel.addItem(new sap.ui.core.Item({
+                                key: String(ws.id),
+                                text: displayText
+                            }));
+                        });
+                        // Seleccionar el ID proporcionado
+                        if (selectedId) {
+                            sel.setSelectedKey(String(selectedId));
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Error recargando horarios:', e);
+                        sap.m.MessageToast.show('Error al recargar los horarios');
+                    });
+            }
+
+            loadUsers();
+        }
+    </script>
+</body>
+
+</html>

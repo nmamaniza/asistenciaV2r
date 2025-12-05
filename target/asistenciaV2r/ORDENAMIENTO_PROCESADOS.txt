@@ -1,0 +1,179 @@
+================================================================================
+  ORDENAMIENTO DE DATOS PROCESADOS - MEJORA IMPLEMENTADA
+================================================================================
+
+FECHA: 2025-11-28 00:17
+ARCHIVOS: procesados.html y procesados_user.html
+OBJETIVO: Ordenar datos por fecha descendente, DNI y cargo
+
+================================================================================
+  CAMBIOS REALIZADOS
+================================================================================
+
+ARCHIVO 1: ProcessedDataServlet.java
+-------------------------------------
+Ubicación: src/main/java/com/asistenciav2/servlet/ProcessedDataServlet.java
+Endpoint: /api/processed-data (usado por procesados.html - Admin)
+
+ANTES:
+    sql.append("ORDER BY da.fecha DESC, u.dni ASC LIMIT 2000");
+
+DESPUÉS:
+    sql.append("ORDER BY da.fecha DESC, u.dni ASC, ja.cargo ASC LIMIT 2000");
+
+Cambio: Agregado ordenamiento por cargo (ja.cargo ASC) después de DNI
+
+
+ARCHIVO 2: ProcessedDataUserServlet.java
+-----------------------------------------
+Ubicación: src/main/java/com/asistenciav2/servlet/ProcessedDataUserServlet.java
+Endpoint: /api/processed-data-user (usado por procesados_user.html - Usuario)
+
+ANTES:
+    sql.append("ORDER BY da.fecha DESC LIMIT 2000");
+
+DESPUÉS:
+    sql.append("ORDER BY da.fecha DESC, u.dni ASC, ja.cargo ASC LIMIT 2000");
+
+Cambio: Agregado ordenamiento por DNI y cargo después de fecha
+
+================================================================================
+  ORDEN DE CLASIFICACIÓN FINAL
+================================================================================
+
+1. FECHA (Descendente) - Las fechas más recientes primero
+   Ejemplo: 2025-11-28, 2025-11-27, 2025-11-26, ...
+
+2. DNI (Ascendente) - Dentro de la misma fecha, ordenar por DNI
+   Ejemplo: 12345678, 41567460, 41819548, ...
+
+3. CARGO (Ascendente) - Dentro del mismo DNI y fecha, ordenar por cargo
+   Ejemplo: Analista, Contador, Consultor, ...
+
+================================================================================
+  BENEFICIOS
+================================================================================
+
+1. MEJOR ORGANIZACIÓN
+   - Los datos están agrupados lógicamente por fecha
+   - Fácil identificar registros de un usuario específico
+   - Clara diferenciación cuando un usuario tiene múltiples cargos
+
+2. FACILITA LA BÚSQUEDA
+   - Usuarios con múltiples cargos aparecen juntos
+   - Más fácil comparar asistencias entre cargos del mismo usuario
+   - Orden predecible y consistente
+
+3. SOPORTE PARA MÚLTIPLES CARGOS
+   - Cuando un usuario tiene 2 cargos simultáneos (ej: con LSG)
+   - Los registros de ambos cargos aparecen consecutivos
+   - Ordenados alfabéticamente por nombre del cargo
+
+================================================================================
+  EJEMPLO DE ORDENAMIENTO
+================================================================================
+
+ANTES (solo por fecha y DNI):
+┌────────────┬───────────┬─────────────────┬──────────┐
+│ Fecha      │ DNI       │ Cargo           │ Obs      │
+├────────────┼───────────┼─────────────────┼──────────┤
+│ 2025-11-28 │ 41819548  │ Consultor       │ A        │
+│ 2025-11-28 │ 41819548  │ Contador        │ LSG      │
+│ 2025-11-28 │ 12345678  │ Analista        │ A        │
+└────────────┴───────────┴─────────────────┴──────────┘
+
+DESPUÉS (por fecha, DNI y cargo):
+┌────────────┬───────────┬─────────────────┬──────────┐
+│ Fecha      │ DNI       │ Cargo           │ Obs      │
+├────────────┼───────────┼─────────────────┼──────────┤
+│ 2025-11-28 │ 12345678  │ Analista        │ A        │
+│ 2025-11-28 │ 41819548  │ Contador        │ LSG      │
+│ 2025-11-28 │ 41819548  │ Consultor       │ A        │
+└────────────┴───────────┴─────────────────┴──────────┘
+
+Nota: Ahora los cargos del mismo usuario están ordenados alfabéticamente
+
+================================================================================
+  CASO DE USO: USUARIO CON DOS CARGOS
+================================================================================
+
+Usuario: Carlos Rojas (DNI: 41819548)
+Cargo 1: Contador (con LSG)
+Cargo 2: Consultor (permitido por LSG)
+
+Resultado en la tabla (fecha 2025-11-28):
+
+Posición 1:
+- DNI: 41819548
+- Cargo: Contador (viene antes alfabéticamente)
+- Obs: LSG
+
+Posición 2:
+- DNI: 41819548
+- Cargo: Consultor (viene después alfabéticamente)
+- Obs: A (o tardanzas, etc.)
+
+Beneficio: Ambos registros aparecen consecutivos y ordenados
+
+================================================================================
+  QUERY SQL COMPLETO
+================================================================================
+
+-- Para administradores (procesados.html)
+SELECT da.id, u.dni, COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellidos,'') AS nombre,
+       da.fecha, da.obs, da.doc, da.final, da.horaint, ja.cargo, ja.area, ja.modalidad
+FROM dailyattendances da
+JOIN jobassignments ja ON ja.id = da.jobassignment_id
+JOIN users u ON u.id = ja.user_id
+WHERE da.estado = 1
+  [AND filtros opcionales: año, mes, búsqueda]
+ORDER BY da.fecha DESC, u.dni ASC, ja.cargo ASC
+LIMIT 2000;
+
+-- Para usuarios (procesados_user.html)
+SELECT da.id, u.dni, COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellidos,'') AS nombre,
+       da.fecha, da.obs, da.doc, da.final, da.horaint, ja.cargo, ja.area, ja.modalidad
+FROM dailyattendances da
+JOIN jobassignments ja ON ja.id = da.jobassignment_id
+JOIN users u ON u.id = ja.user_id
+WHERE da.estado = 1 AND u.id = ?
+  [AND filtros opcionales: fechaInicio, fechaFin]
+ORDER BY da.fecha DESC, u.dni ASC, ja.cargo ASC
+LIMIT 2000;
+
+================================================================================
+  COMPATIBILIDAD
+================================================================================
+
+✓ Compatible con usuarios con 1 cargo
+✓ Compatible con usuarios con 2 cargos (LSG)
+✓ Compatible con filtros existentes (año, mes, búsqueda, fechas)
+✓ No afecta la funcionalidad de edición inline
+✓ No afecta el procesamiento de asistencias
+
+================================================================================
+  TESTING RECOMENDADO
+================================================================================
+
+1. Verificar ordenamiento con datos de una sola fecha
+2. Verificar ordenamiento con datos de múltiples fechas
+3. Verificar que usuarios con 2 cargos aparezcan consecutivos
+4. Verificar que los cargos estén ordenados alfabéticamente
+5. Verificar filtros (año, mes, búsqueda) con el nuevo ordenamiento
+6. Verificar en procesados.html (admin)
+7. Verificar en procesados_user.html (usuario)
+
+================================================================================
+  ESTADO: COMPLETADO
+================================================================================
+
+El ordenamiento ha sido implementado exitosamente en ambos servlets.
+Los datos ahora se muestran ordenados por:
+1. Fecha (descendente)
+2. DNI (ascendente)
+3. Cargo (ascendente)
+
+Esto facilita la visualización y análisis de datos, especialmente para
+usuarios con múltiples cargos simultáneos.
+
+================================================================================

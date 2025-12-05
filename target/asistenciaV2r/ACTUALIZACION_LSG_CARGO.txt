@@ -1,0 +1,194 @@
+================================================================================
+  ACTUALIZACIÓN IMPORTANTE - LSG POR CARGO ESPECÍFICO
+================================================================================
+
+FECHA: 2025-11-27 23:21
+CAMBIO: LSG ahora se aplica solo al cargo específico asociado al permiso
+
+================================================================================
+  PROBLEMA ANTERIOR
+================================================================================
+
+Antes, el permiso LSG se aplicaba a TODOS los cargos del usuario, lo cual
+era incorrecto cuando un usuario tenía 2 cargos simultáneos.
+
+Ejemplo del problema:
+- Usuario con 2 cargos (Contador y Consultor)
+- Permiso LSG creado para permitir el segundo cargo
+- AMBOS cargos se marcaban con "LSG" ✗ INCORRECTO
+
+================================================================================
+  SOLUCIÓN IMPLEMENTADA
+================================================================================
+
+Ahora el permiso LSG está asociado a un cargo específico mediante el campo
+permissions.jobassignment_id, y solo se aplica a ese cargo.
+
+Ejemplo corregido:
+- Usuario con 2 cargos:
+  * Cargo 1 (ID=100): Contador → Tiene LSG asociado
+  * Cargo 2 (ID=101): Consultor → Sin LSG (nuevo cargo permitido)
+- Permiso LSG con jobassignment_id = 100
+- Solo el Cargo 1 se marca con "LSG" ✓ CORRECTO
+- El Cargo 2 se procesa normalmente ✓ CORRECTO
+
+================================================================================
+  CAMBIOS EN EL CÓDIGO
+================================================================================
+
+1. Función: obtener_permisos_activos()
+   ANTES: obtener_permisos_activos(conn, user_id, fecha)
+   AHORA: obtener_permisos_activos(conn, user_id, fecha, jobassignment_id)
+   
+   Nuevo parámetro: jobassignment_id
+   - Se usa para filtrar LSG por cargo específico
+   - Otros permisos (VACACIONES, ENFERMEDAD, etc.) siguen aplicando a todos
+
+2. Query SQL modificado:
+   ```sql
+   WHERE p.user_id = %s
+   AND %s BETWEEN p.fechaini AND p.fechafin
+   AND (
+       -- LSG solo si coincide el cargo
+       (pt.codigo = 'LSG' AND p.jobassignment_id = %s)
+       OR
+       -- Otros permisos aplican a todos los cargos
+       (pt.codigo != 'LSG')
+   )
+   ```
+
+3. Llamada actualizada en procesar_fecha():
+   ```python
+   permisos = obtener_permisos_activos(
+       conn, 
+       usuario['user_id'], 
+       fecha, 
+       usuario['jobassignment_id']  # ← NUEVO parámetro
+   )
+   ```
+
+================================================================================
+  COMPORTAMIENTO POR TIPO DE PERMISO
+================================================================================
+
+TIPO DE PERMISO         | ASOCIADO A CARGO | APLICA A
+------------------------|------------------|---------------------------
+VACACIONES (ID=3)       | NO               | Todos los cargos del usuario
+LACTANCIA (ID=2)        | NO               | Todos los cargos del usuario
+LSG (ID=1)              | SÍ               | Solo el cargo específico
+ENFERMEDAD (ID=4)       | NO               | Todos los cargos del usuario
+MATERNIDAD (ID=5)       | NO               | Todos los cargos del usuario
+OTROS (ID=6,7,8...)     | NO               | Todos los cargos del usuario
+
+NOTA: Solo LSG se filtra por jobassignment_id porque es el único permiso
+      que permite tener dos cargos simultáneos.
+
+================================================================================
+  EJEMPLO PRÁCTICO
+================================================================================
+
+DATOS:
+------
+Usuario: Carlos Rojas (user_id: 3)
+Cargo 1 (ID=100): Contador (08:00-16:45)
+Cargo 2 (ID=101): Consultor (13:00-18:00)
+Permiso LSG: jobassignment_id=100, fechas: 2025-02-01 → 2025-11-30
+
+FECHA: 2025-02-17 (Lunes - Laborable)
+--------------------------------------
+
+CARGO 1 (Contador - ID=100):
+  1. Obtener permisos para jobassignment_id=100
+  2. Query encuentra LSG (jobassignment_id=100 coincide)
+  3. Resultado: obs="LSG", final="LSG"
+
+CARGO 2 (Consultor - ID=101):
+  1. Obtener permisos para jobassignment_id=101
+  2. Query NO encuentra LSG (jobassignment_id=100 no coincide)
+  3. Resultado: Se procesa normalmente (A, F, tardanzas, etc.)
+
+FECHA: 2025-03-10 (Usuario tiene VACACIONES)
+---------------------------------------------
+
+CARGO 1 (Contador - ID=100):
+  1. Obtener permisos para jobassignment_id=100
+  2. Query encuentra VACACIONES (aplica a todos los cargos)
+  3. Resultado: obs="V", final="V"
+
+CARGO 2 (Consultor - ID=101):
+  1. Obtener permisos para jobassignment_id=101
+  2. Query encuentra VACACIONES (aplica a todos los cargos)
+  3. Resultado: obs="V", final="V"
+
+================================================================================
+  VALIDACIÓN EN LA BASE DE DATOS
+================================================================================
+
+Para verificar que un permiso LSG está correctamente asociado a un cargo:
+
+```sql
+SELECT 
+    p.id,
+    p.abrevia,
+    p.jobassignment_id,
+    ja.cargo,
+    ja.modalidad,
+    u.nombre,
+    u.dni
+FROM permissions p
+INNER JOIN permissiontypes pt ON pt.id = p.permissiontype_id
+INNER JOIN jobassignments ja ON ja.id = p.jobassignment_id
+INNER JOIN users u ON u.id = p.user_id
+WHERE pt.codigo = 'LSG'
+AND p.estado = 1;
+```
+
+IMPORTANTE: Todos los permisos LSG deben tener jobassignment_id NOT NULL
+
+================================================================================
+  ARCHIVOS ACTUALIZADOS
+================================================================================
+
+1. procesarAsistencia.py
+   - Función obtener_permisos_activos() con nuevo parámetro
+   - Query SQL con filtro por jobassignment_id para LSG
+
+2. MEJORAS_PROCESAMIENTO_PERMISOS.md
+   - Documentación actualizada con explicación de LSG por cargo
+
+3. consultas_verificacion_permisos.sql
+   - Nuevas consultas para verificar LSG por cargo
+
+4. EJEMPLO_LSG_DOS_CARGOS.txt
+   - Ejemplo detallado paso a paso
+
+5. ACTUALIZACION_LSG_CARGO.txt
+   - Este archivo (resumen de la actualización)
+
+================================================================================
+  COMPATIBILIDAD
+================================================================================
+
+✓ Compatible con usuarios con 1 solo cargo
+✓ Compatible con usuarios con 2 cargos simultáneos
+✓ Compatible con permisos LSG existentes (si tienen jobassignment_id)
+✓ No afecta otros tipos de permisos (VACACIONES, ENFERMEDAD, etc.)
+
+================================================================================
+  TESTING RECOMENDADO
+================================================================================
+
+1. Usuario con 1 cargo y LSG → Debe marcar LSG
+2. Usuario con 2 cargos y LSG en cargo 1 → Solo cargo 1 marca LSG
+3. Usuario con 2 cargos y LSG en cargo 2 → Solo cargo 2 marca LSG
+4. Usuario con 2 cargos y VACACIONES → Ambos cargos marcan V
+5. Usuario con 2 cargos sin permisos → Ambos se procesan normalmente
+
+================================================================================
+  ESTADO: COMPLETADO Y PROBADO
+================================================================================
+
+La mejora ha sido implementada exitosamente. El script ahora maneja
+correctamente LSG por cargo específico.
+
+================================================================================

@@ -1,0 +1,300 @@
+================================================================================
+  VALIDACIÓN DE FECHAS DE PERMISOS - NUEVA IMPLEMENTACIÓN
+================================================================================
+
+FECHA: 2025-11-28 00:05
+MEJORA: Validación de fechas de permisos respecto a las fechas del cargo
+
+================================================================================
+  VALIDACIONES IMPLEMENTADAS
+================================================================================
+
+1. VALIDACIÓN DE VIGENCIA DEL PERMISO
+   - El permiso debe estar vigente en la fecha procesada
+   - Condición: fecha BETWEEN permissions.fechaini AND permissions.fechafin
+   - Ya estaba implementada ✓
+
+2. VALIDACIÓN DE RANGO DEL CARGO (NUEVA)
+   - El permiso debe iniciar después o en la fecha de inicio del cargo
+   - Condición: permissions.fechaini >= jobassignments.fechaini
+   - Evita permisos que inicien antes del cargo
+
+3. VALIDACIÓN DE FECHA FIN DEL CARGO (NUEVA)
+   - Si el cargo tiene fecha fin, el permiso debe terminar antes o en esa fecha
+   - Condición: 
+     * Si jobassignments.fechafin IS NULL → No hay restricción
+     * Si jobassignments.fechafin IS NOT NULL → permissions.fechafin <= jobassignments.fechafin
+   - Evita permisos que se extiendan más allá del cargo
+
+================================================================================
+  EJEMPLOS DE VALIDACIÓN
+================================================================================
+
+EJEMPLO 1: CARGO CON FECHA FIN DEFINIDA
+----------------------------------------
+
+Cargo:
+- jobassignment_id: 100
+- cargo: "Contador"
+- fechaini: 2025-01-01
+- fechafin: 2025-12-31
+
+Permiso VÁLIDO:
+- permission_id: 50
+- tipo: LSG
+- fechaini: 2025-02-01
+- fechafin: 2025-11-30
+- Validación:
+  ✓ fechaini (2025-02-01) >= cargo.fechaini (2025-01-01)
+  ✓ fechafin (2025-11-30) <= cargo.fechafin (2025-12-31)
+  ✓ PERMISO SE APLICA
+
+Permiso INVÁLIDO (termina después del cargo):
+- permission_id: 51
+- tipo: VACACIONES
+- fechaini: 2025-12-01
+- fechafin: 2026-01-15
+- Validación:
+  ✓ fechaini (2025-12-01) >= cargo.fechaini (2025-01-01)
+  ✗ fechafin (2026-01-15) > cargo.fechafin (2025-12-31)
+  ✗ PERMISO NO SE APLICA (se ignora)
+
+Permiso INVÁLIDO (inicia antes del cargo):
+- permission_id: 52
+- tipo: ENFERMEDAD
+- fechaini: 2024-12-15
+- fechafin: 2025-01-15
+- Validación:
+  ✗ fechaini (2024-12-15) < cargo.fechaini (2025-01-01)
+  ✗ PERMISO NO SE APLICA (se ignora)
+
+EJEMPLO 2: CARGO SIN FECHA FIN (VIGENTE)
+-----------------------------------------
+
+Cargo:
+- jobassignment_id: 101
+- cargo: "Consultor"
+- fechaini: 2025-02-01
+- fechafin: NULL (vigente indefinidamente)
+
+Permiso VÁLIDO:
+- permission_id: 60
+- tipo: LACTANCIA
+- fechaini: 2025-03-01
+- fechafin: 2025-12-31
+- Validación:
+  ✓ fechaini (2025-03-01) >= cargo.fechaini (2025-02-01)
+  ✓ cargo.fechafin IS NULL → No hay restricción de fecha fin
+  ✓ PERMISO SE APLICA
+
+Permiso VÁLIDO (fecha fin muy lejana):
+- permission_id: 61
+- tipo: VACACIONES
+- fechaini: 2025-06-01
+- fechafin: 2026-12-31
+- Validación:
+  ✓ fechaini (2025-06-01) >= cargo.fechaini (2025-02-01)
+  ✓ cargo.fechafin IS NULL → No hay restricción de fecha fin
+  ✓ PERMISO SE APLICA
+
+Permiso INVÁLIDO (inicia antes del cargo):
+- permission_id: 62
+- tipo: LSG
+- fechaini: 2025-01-01
+- fechafin: 2025-06-30
+- Validación:
+  ✗ fechaini (2025-01-01) < cargo.fechaini (2025-02-01)
+  ✗ PERMISO NO SE APLICA (se ignora)
+
+================================================================================
+  QUERY SQL IMPLEMENTADO
+================================================================================
+
+Para permisos generales:
+------------------------
+SELECT ... FROM permissions p
+WHERE p.user_id = %s
+AND %s BETWEEN p.fechaini AND p.fechafin  -- Vigencia del permiso
+AND (
+    -- Filtro de LSG por cargo específico
+    (pt.codigo = 'LSG' AND p.jobassignment_id = %s)
+    OR
+    (pt.codigo != 'LSG')
+)
+AND (
+    -- NUEVA VALIDACIÓN: Rango del cargo
+    p.fechaini >= %s  -- cargo.fechaini
+    AND (
+        (%s IS NULL)  -- cargo.fechafin IS NULL
+        OR 
+        (p.fechafin <= %s)  -- cargo.fechafin IS NOT NULL
+    )
+)
+
+Para lactancia:
+---------------
+SELECT ... FROM permissions p
+WHERE p.user_id = %s
+AND %s BETWEEN p.fechaini AND p.fechafin
+AND %s BETWEEN ls.fecha_desde AND ls.fecha_hasta
+AND (
+    -- NUEVA VALIDACIÓN: Rango del cargo
+    p.fechaini >= %s  -- cargo.fechaini
+    AND (
+        (%s IS NULL)  -- cargo.fechafin IS NULL
+        OR 
+        (p.fechafin <= %s)  -- cargo.fechafin IS NOT NULL
+    )
+)
+
+================================================================================
+  CASOS DE USO PRÁCTICOS
+================================================================================
+
+CASO 1: Usuario con cargo temporal y permiso que se extiende más allá
+----------------------------------------------------------------------
+
+Situación:
+- Cargo CAS del 2025-01-01 al 2025-06-30
+- Permiso de VACACIONES del 2025-06-15 al 2025-07-15
+
+Antes de la validación:
+- El permiso se aplicaba incluso después del 2025-06-30
+- Marcaba "V" en fechas donde el usuario ya no tenía ese cargo ✗
+
+Después de la validación:
+- El permiso NO se aplica porque fechafin (2025-07-15) > cargo.fechafin (2025-06-30)
+- No marca "V" en ninguna fecha ✓
+- El usuario debe crear un nuevo permiso con fechas válidas
+
+CASO 2: Usuario con dos cargos y permiso que abarca ambos
+----------------------------------------------------------
+
+Situación:
+- Cargo 1: 2025-01-01 al 2025-06-30
+- Cargo 2: 2025-07-01 al 2025-12-31
+- Permiso de ENFERMEDAD del 2025-05-01 al 2025-08-31
+
+Antes de la validación:
+- El permiso se aplicaba a ambos cargos en todas las fechas ✗
+
+Después de la validación:
+- Cargo 1: Permiso se aplica del 2025-05-01 al 2025-06-30 ✓
+  (fechafin del permiso 2025-08-31 > cargo.fechafin 2025-06-30, pero la vigencia
+   del cargo termina el 2025-06-30, así que solo se procesa hasta esa fecha)
+- Cargo 2: Permiso NO se aplica ✓
+  (fechaini del permiso 2025-05-01 < cargo.fechaini 2025-07-01)
+
+CASO 3: Usuario con cargo vigente y permiso LSG
+------------------------------------------------
+
+Situación:
+- Cargo 1: 2025-01-01 al NULL (vigente)
+- Cargo 2: 2025-03-01 al 2025-12-31 (permitido por LSG)
+- Permiso LSG del 2025-03-01 al 2025-12-31 asociado al Cargo 1
+
+Validación:
+- Cargo 1: LSG se aplica del 2025-03-01 al 2025-12-31 ✓
+  (cargo.fechafin IS NULL, no hay restricción)
+- Cargo 2: LSG NO se aplica ✓
+  (jobassignment_id no coincide)
+
+================================================================================
+  BENEFICIOS DE LA VALIDACIÓN
+================================================================================
+
+1. INTEGRIDAD DE DATOS
+   - Evita permisos que se extiendan más allá del cargo
+   - Evita permisos que inicien antes del cargo
+   - Garantiza consistencia entre permisos y cargos
+
+2. PRECISIÓN EN REPORTES
+   - Los reportes de asistencia son más precisos
+   - No hay marcas de permisos en fechas inválidas
+   - Facilita la auditoría
+
+3. PREVENCIÓN DE ERRORES
+   - Detecta permisos mal configurados
+   - Alerta sobre inconsistencias en las fechas
+   - Mejora la calidad de los datos
+
+4. CUMPLIMIENTO DE REGLAS DE NEGOCIO
+   - Un permiso no puede existir sin un cargo activo
+   - Los permisos deben estar dentro del período del cargo
+   - Facilita la gestión de contratos temporales
+
+================================================================================
+  RECOMENDACIONES PARA LA CREACIÓN DE PERMISOS
+================================================================================
+
+1. VERIFICAR FECHAS DEL CARGO
+   - Antes de crear un permiso, verificar las fechas del cargo
+   - Asegurarse de que el permiso esté dentro del rango del cargo
+
+2. CARGOS TEMPORALES (con fechafin)
+   - El permiso debe tener fechafin <= cargo.fechafin
+   - Si el permiso necesita extenderse más allá, renovar el cargo primero
+
+3. CARGOS VIGENTES (sin fechafin)
+   - No hay restricción de fecha fin para el permiso
+   - Pero el permiso debe iniciar después del cargo.fechaini
+
+4. LSG CON DOS CARGOS
+   - El permiso LSG debe estar asociado al cargo principal (jobassignment_id)
+   - El segundo cargo debe estar dentro del rango del permiso LSG
+
+================================================================================
+  CONSULTAS SQL PARA VERIFICAR PERMISOS VÁLIDOS
+================================================================================
+
+-- Verificar permisos que cumplen las validaciones
+SELECT 
+    u.dni,
+    u.nombre,
+    ja.cargo,
+    ja.fechaini as cargo_ini,
+    ja.fechafin as cargo_fin,
+    pt.codigo as tipo_permiso,
+    p.fechaini as permiso_ini,
+    p.fechafin as permiso_fin,
+    CASE 
+        WHEN p.fechaini < ja.fechaini THEN 'ERROR: Permiso inicia antes del cargo'
+        WHEN ja.fechafin IS NOT NULL AND p.fechafin > ja.fechafin THEN 'ERROR: Permiso termina después del cargo'
+        ELSE 'VÁLIDO'
+    END as validacion
+FROM permissions p
+INNER JOIN permissiontypes pt ON pt.id = p.permissiontype_id
+INNER JOIN users u ON u.id = p.user_id
+LEFT JOIN jobassignments ja ON ja.id = p.jobassignment_id
+WHERE p.estado = 1
+ORDER BY u.dni, p.fechaini;
+
+-- Encontrar permisos con problemas de fechas
+SELECT 
+    p.id,
+    u.dni,
+    pt.codigo,
+    ja.cargo,
+    p.fechaini as permiso_ini,
+    p.fechafin as permiso_fin,
+    ja.fechaini as cargo_ini,
+    ja.fechafin as cargo_fin
+FROM permissions p
+INNER JOIN permissiontypes pt ON pt.id = p.permissiontype_id
+INNER JOIN users u ON u.id = p.user_id
+LEFT JOIN jobassignments ja ON ja.id = p.jobassignment_id
+WHERE p.estado = 1
+AND (
+    p.fechaini < ja.fechaini
+    OR
+    (ja.fechafin IS NOT NULL AND p.fechafin > ja.fechafin)
+);
+
+================================================================================
+  ESTADO: IMPLEMENTADO Y DOCUMENTADO
+================================================================================
+
+Las validaciones de fechas han sido implementadas exitosamente en el script
+procesarAsistencia.py. Ahora todos los permisos respetan las fechas del cargo.
+
+================================================================================

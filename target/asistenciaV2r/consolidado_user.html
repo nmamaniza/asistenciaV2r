@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Consolidado - Sistema de Asistencia</title>
+    <script id="sap-ui-bootstrap" src="https://openui5.hana.ondemand.com/resources/sap-ui-core.js"
+        data-sap-ui-libs="sap.m,sap.ui.table,sap.ui.layout" data-sap-ui-theme="sap_horizon">
+        </script>
+    <script src="/asistenciaV2r/js/menu-manager.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background-color: #3498db;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .user-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .user-avatar:hover {
+            background-color: #f0f0f0;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 220px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-header {
+            padding: 12px 16px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .dropdown-item {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            transition: background-color 0.3s ease;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item.logout {
+            border-top: 1px solid #e9ecef;
+            color: #dc3545;
+        }
+
+        .dropdown-item.logout:hover {
+            background-color: #f8d7da;
+        }
+
+        .content {
+            padding: 1rem;
+            max-width: 100%;
+            margin: 0;
+        }
+
+        .job-header {
+            background-color: #eff4f9;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            border: 1px solid #d1d9e0;
+        }
+
+        .job-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #0050b3;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .job-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .job-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .job-info-label {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: bold;
+        }
+
+        .job-info-value {
+            font-size: 0.95rem;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body class="sapUiBody">
+    <div class="header">
+        <h1>📊 Mi Consolidado de Asistencia</h1>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">
+                U
+            </div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-header" id="dropdownHeader">Usuario</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div id="uiArea"></div>
+    </div>
+
+    <script>
+        sap.ui.getCore().attachInit(function () {
+            if (window.menuManager) {
+                window.menuManager.init();
+            }
+
+            sap.ui.require([
+                "sap/m/Panel",
+                "sap/ui/table/Table",
+                "sap/ui/table/Column",
+                "sap/m/Text",
+                "sap/m/Label",
+                "sap/ui/model/json/JSONModel",
+                "sap/m/Toolbar",
+                "sap/m/DatePicker",
+                "sap/m/Button",
+                "sap/m/MessageToast",
+                "sap/m/ToolbarSpacer",
+                "sap/m/HBox",
+                "sap/m/VBox",
+                "sap/ui/core/HTML"
+            ], function (Panel, Table, Column, Text, Label, JSONModel, Toolbar, DatePicker, Button, MessageToast, ToolbarSpacer, HBox, VBox, HTML) {
+
+                var oModel = new JSONModel({
+                    filters: {
+                        fechaInicio: null,
+                        fechaFin: null
+                    }
+                });
+
+                var today = new Date();
+                var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                var lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                oModel.setProperty("/filters/fechaInicio", firstDay);
+                oModel.setProperty("/filters/fechaFin", lastDay);
+
+                // Main Layout Container
+                var oMainLayout = new VBox({ width: "100%" });
+
+                // --- Filter Bar ---
+                var filterBar = new Toolbar({
+                    content: [
+                        new HBox({
+                            alignItems: "Center",
+                            items: [
+                                new Label({
+                                    text: 'Fecha Inicio:',
+                                    width: "100px",
+                                    design: "Bold"
+                                }).addStyleClass("sapUiSmallMarginEnd"),
+                                new DatePicker({
+                                    dateValue: '{/filters/fechaInicio}',
+                                    displayFormat: 'MM/yyyy',
+                                    placeholder: 'MM/yyyy',
+                                    width: "140px",
+                                    change: function (oEvent) {
+                                        var oDatePicker = oEvent.getSource();
+                                        if (oDatePicker.getDateValue()) {
+                                            var oDate = oDatePicker.getDateValue();
+                                            if (oDate) {
+                                                var firstDay = new Date(oDate.getFullYear(), oDate.getMonth(), 1);
+                                                oModel.setProperty("/filters/fechaInicio", firstDay);
+                                            }
+                                        }
+                                    }
+                                }).addStyleClass("sapUiSmallMarginEnd")
+                            ]
+                        }),
+                        new HBox({
+                            alignItems: "Center",
+                            items: [
+                                new Label({
+                                    text: 'Fecha Fin:',
+                                    width: "100px",
+                                    design: "Bold"
+                                }).addStyleClass("sapUiSmallMarginEnd"),
+                                new DatePicker({
+                                    dateValue: '{/filters/fechaFin}',
+                                    displayFormat: 'MM/yyyy',
+                                    placeholder: 'MM/yyyy',
+                                    width: "140px",
+                                    change: function (oEvent) {
+                                        var oDatePicker = oEvent.getSource();
+                                        if (oDatePicker.getDateValue()) {
+                                            var oDate = oDatePicker.getDateValue();
+                                            if (oDate) {
+                                                var lastDay = new Date(oDate.getFullYear(), oDate.getMonth() + 1, 0);
+                                                oModel.setProperty("/filters/fechaFin", lastDay);
+                                            }
+                                        }
+                                    }
+                                }).addStyleClass("sapUiSmallMarginEnd")
+                            ]
+                        }),
+                        new ToolbarSpacer(),
+                        new Button({
+                            text: 'Buscar',
+                            type: 'Emphasized',
+                            icon: "sap-icon://search",
+                            press: loadConsolidatedData
+                        })
+                    ]
+                });
+
+                var oFilterPanel = new Panel({
+                    headerText: "Filtros de Búsqueda",
+                    content: [filterBar]
+                });
+                oFilterPanel.setModel(oModel);
+                oMainLayout.addItem(oFilterPanel);
+
+                // Container for dynamic results
+                var oResultsContainer = new VBox({ width: "100%" }).addStyleClass("sapUiSmallMarginTop");
+                oMainLayout.addItem(oResultsContainer);
+
+                oMainLayout.placeAt("uiArea");
+
+                function loadConsolidatedData() {
+                    var f = oModel.getProperty('/filters');
+                    var dInicio = f.fechaInicio;
+                    var dFin = f.fechaFin;
+
+                    // 1. Validations
+                    if (!dInicio || !dFin) {
+                        MessageToast.show("Seleccione fecha de inicio y fin");
+                        return;
+                    }
+
+                    if (typeof dInicio === 'string') dInicio = new Date(dInicio);
+                    if (typeof dFin === 'string') dFin = new Date(dFin);
+
+                    // Validation 1: Start Date <= End Date
+                    if (dInicio > dFin) {
+                        MessageToast.show("La fecha de inicio debe ser anterior o igual a la fecha fin");
+                        return;
+                    }
+
+                    // Validation 2: End Date <= Current Month (End of current month)
+                    var now = new Date();
+                    var currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    // Reset times to compare dates only
+                    dFin.setHours(0, 0, 0, 0);
+                    currentMonthEnd.setHours(0, 0, 0, 0);
+
+                    if (dFin > currentMonthEnd) {
+                        MessageToast.show("La fecha fin no debe ser mayor al mes actual");
+                        return;
+                    }
+
+                    var anioInicio = dInicio.getFullYear();
+                    var mesInicio = dInicio.getMonth() + 1;
+                    var anioFin = dFin.getFullYear();
+                    var mesFin = dFin.getMonth() + 1;
+
+                    var qs = new URLSearchParams();
+                    qs.append('anioInicio', anioInicio);
+                    qs.append('mesInicio', mesInicio);
+                    qs.append('anioFin', anioFin);
+                    qs.append('mesFin', mesFin);
+
+                    fetch('/asistenciaV2r/api/consolidated-data-user?' + qs.toString(), { credentials: 'include' })
+                        .then(response => {
+                            if (!response.ok) throw new Error("Error " + response.status);
+                            return response.json();
+                        })
+                        .then(data => {
+                            oResultsContainer.destroyItems(); // Clear previous results
+
+                            if (!data || data.length === 0) {
+                                MessageToast.show("No se encontraron datos para el rango seleccionado.");
+                                return;
+                            }
+
+                            // Process each job assignment separately
+                            data.forEach(function (jobData) {
+                                createJobSection(jobData, dInicio, dFin);
+                            });
+
+                            MessageToast.show("Datos cargados: " + data.length + " cargos encontrados");
+                        })
+                        .catch(err => {
+                            MessageToast.show("Error: " + err.message);
+                            console.error(err);
+                        });
+                }
+
+                function createJobSection(jobData, dInicio, dFin) {
+                    // 1. Create Header Info using HTML for custom styling
+                    var cargo = jobData.cargo || "Sin Cargo";
+                    var nombre = jobData.nombre || "";
+                    var dni = jobData.dni || "";
+                    var fechaIni = jobData.job_ini || "N/A";
+                    var fechaFin = jobData.job_fin || "Activo";
+
+                    var htmlContent = `
+                        <div class="job-header">
+                            <span class="job-title">${cargo}</span>
+                            <div class="job-info-grid">
+                                <div class="job-info-item">
+                                    <span class="job-info-label">Nombre</span>
+                                    <span class="job-info-value">${nombre}</span>
+                                </div>
+                                <div class="job-info-item">
+                                    <span class="job-info-label">DNI</span>
+                                    <span class="job-info-value">${dni}</span>
+                                </div>
+                                <div class="job-info-item">
+                                    <span class="job-info-label">Fecha Inicio</span>
+                                    <span class="job-info-value">${fechaIni}</span>
+                                </div>
+                                <div class="job-info-item">
+                                    <span class="job-info-label">Fecha Fin</span>
+                                    <span class="job-info-value">${fechaFin}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    var oHeaderHTML = new HTML({ content: htmlContent });
+
+                    // 2. Transform Data for this specific job
+                    var monthRows = transformJobToMonths(jobData, dInicio, dFin);
+                    var oJobModel = new JSONModel({ rows: monthRows });
+
+                    // 3. Create Table
+                    var oTable = new Table({
+                        selectionMode: sap.ui.table.SelectionMode.None,
+                        visibleRowCount: Math.max(1, Math.min(monthRows.length, 12)),
+                        enableColumnReordering: false,
+                        width: "100%",
+                        fixedColumnCount: 1
+                    });
+
+                    oTable.setModel(oJobModel);
+
+                    // Add Columns
+                    // Month Column
+                    oTable.addColumn(new Column({
+                        label: new Label({ text: "Mes (Días)" }),
+                        template: new Text({ text: "{mes}", wrapping: false }),
+                        width: "160px",
+                        frozen: true
+                    }));
+
+                    // Day Columns (1-31)
+                    // Calculate max days in the range to define columns
+                    var maxDays = 31; // Default to 31 for simplicity, or calculate dynamically
+
+                    for (var i = 1; i <= maxDays; i++) {
+                        var dayStr = String(i).padStart(2, '0');
+                        var prop = "d" + dayStr;
+
+                        oTable.addColumn(new Column({
+                            label: new Label({ text: String(i) }),
+                            template: new Text({
+                                text: "{" + prop + "}",
+                                wrapping: false,
+                                textAlign: "Center"
+                            }),
+                            width: "40px",
+                            hAlign: "Center"
+                        }));
+                    }
+
+                    oTable.bindRows("/rows");
+
+                    // 4. Add to Container
+                    var oJobContainer = new VBox({
+                        items: [oHeaderHTML, oTable]
+                    }).addStyleClass("sapUiMediumMarginBottom");
+
+                    oResultsContainer.addItem(oJobContainer);
+                }
+
+                function transformJobToMonths(userData, dInicio, dFin) {
+                    var result = [];
+                    var currentDate = new Date(dInicio.getFullYear(), dInicio.getMonth(), 1);
+                    var endDate = new Date(dFin.getFullYear(), dFin.getMonth(), 1);
+                    var monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+                    while (currentDate <= endDate) {
+                        var anio = currentDate.getFullYear();
+                        var mes = currentDate.getMonth() + 1;
+                        var mesStr = String(mes).padStart(2, '0');
+                        var monthName = monthNames[currentDate.getMonth()];
+                        var daysInMonth = new Date(anio, mes, 0).getDate();
+
+                        var monthRow = {
+                            mes: monthName + " " + anio + " (" + daysInMonth + ")",
+                            dni: userData.dni
+                        };
+
+                        for (var i = 1; i <= daysInMonth; i++) {
+                            var dayStr = String(i).padStart(2, '0');
+                            var sourceKey = "d_" + anio + mesStr + dayStr;
+                            var targetKey = "d" + dayStr;
+                            monthRow[targetKey] = userData[sourceKey] || "";
+                        }
+
+                        result.push(monthRow);
+                        currentDate.setMonth(currentDate.getMonth() + 1);
+                    }
+
+                    return result;
+                }
+
+                // Initial Load
+                loadConsolidatedData();
+            });
+        });
+    </script>
+</body>
+
+</html>

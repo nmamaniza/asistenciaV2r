@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Sistema de Asistencia</title>
+
+    <!-- OpenUI5 CDN -->
+    <script id="sap-ui-bootstrap" src="https://openui5.hana.ondemand.com/resources/sap-ui-core.js"
+        data-sap-ui-theme="sap_horizon" data-sap-ui-libs="sap.m" data-sap-ui-compatVersion="edge"
+        data-sap-ui-async="true">
+        </script>
+
+    <script src="/asistenciaV2r/js/menu-manager.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logout-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+
+        #content {
+            padding: 20px;
+        }
+
+        /* Estilos para el menú desplegable */
+        .user-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #34495e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .user-avatar:hover {
+            background-color: #4a6741;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: white;
+            min-width: 200px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: 12px 16px;
+            text-decoration: none;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.3s;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item.logout {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .dropdown-item.logout:hover {
+            background-color: #ffeaea;
+        }
+
+        .dropdown-header {
+            padding: 12px 16px;
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #666;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+
+<body class="sapUiBody">
+    <div class="header">
+        <h1>Dashboard - Sistema de Asistencia</h1>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">
+                U
+            </div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <!-- El menú se cargará dinámicamente según el rol del usuario -->
+            </div>
+        </div>
+    </div>
+
+    <div id="content"></div>
+
+    <script>
+        // Inicializar el gestor de menús
+        document.addEventListener('DOMContentLoaded', function () {
+            window.menuManager.init();
+        });
+
+        sap.ui.getCore().attachInit(function () {
+            sap.ui.require([
+                "sap/m/Table",
+                "sap/m/Column",
+                "sap/m/ColumnListItem",
+                "sap/m/Text",
+                "sap/m/Button",
+                "sap/m/Panel",
+                "sap/m/VBox",
+                "sap/m/HBox",
+                "sap/ui/model/json/JSONModel",
+                "sap/m/MessageToast"
+            ], function (Table, Column, ColumnListItem, Text, Button, Panel, VBox, HBox, JSONModel, MessageToast) {
+
+                // Crear modelo de datos
+                var oModel = new JSONModel();
+
+                // Función para cargar datos de asistencia
+                function loadAttendanceData() {
+                    fetch('/asistenciaV2r/api/attendances')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Error al cargar datos: ' + response.status);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Datos recibidos:', data);
+
+                            // Formatear fechas para mejor visualización
+                            if (Array.isArray(data)) {
+                                data.forEach(item => {
+                                    if (item.fechahora) {
+                                        item.fechahoraFormatted = new Date(item.fechahora).toLocaleString('es-ES');
+                                    }
+                                    if (item.fecha) {
+                                        item.fechaFormatted = new Date(item.fecha).toLocaleDateString('es-ES');
+                                    }
+                                    if (item.hora) {
+                                        item.horaFormatted = item.hora;
+                                    }
+                                });
+                            }
+
+                            oModel.setData({
+                                attendances: data || [],
+                                count: (data && data.length) || 0
+                            });
+
+                            MessageToast.show("Datos cargados: " + ((data && data.length) || 0) + " registros");
+                        })
+                        .catch(error => {
+                            console.error('Error al cargar datos:', error);
+                            MessageToast.show("Error al cargar los datos de asistencia: " + error.message);
+                            oModel.setData({
+                                attendances: [],
+                                count: 0
+                            });
+                        });
+                }
+
+                // Crear tabla de asistencias usando sap.m.Table
+                var oTable = new Table({
+                    inset: false,
+                    columns: [
+                        new Column({
+                            width: "100px",
+                            header: new Text({ text: "DNI" })
+                        }),
+                        new Column({
+                            width: "200px",
+                            header: new Text({ text: "Nombre" })
+                        }),
+                        new Column({
+                            width: "150px",
+                            header: new Text({ text: "Fecha y Hora" })
+                        }),
+                        new Column({
+                            width: "100px",
+                            header: new Text({ text: "Fecha" })
+                        }),
+                        new Column({
+                            width: "80px",
+                            header: new Text({ text: "Hora" })
+                        }),
+                        new Column({
+                            width: "80px",
+                            header: new Text({ text: "Reloj" })
+                        }),
+                        new Column({
+                            width: "120px",
+                            header: new Text({ text: "Tipo Marcaje" })
+                        })
+                    ]
+                });
+
+                // Template para las filas
+                var oTemplate = new ColumnListItem({
+                    cells: [
+                        new Text({ text: "{dni}" }),
+                        new Text({ text: "{nombre}" }),
+                        new Text({ text: "{fechahoraFormatted}" }),
+                        new Text({ text: "{fechaFormatted}" }),
+                        new Text({ text: "{horaFormatted}" }),
+                        new Text({ text: "{reloj}" }),
+                        new Text({ text: "{tipo_marcaje}" })
+                    ]
+                });
+
+                // Vincular datos a la tabla
+                oTable.bindItems({
+                    path: "/attendances",
+                    template: oTemplate
+                });
+
+                // Botón para actualizar datos
+                var oRefreshButton = new Button({
+                    text: "Actualizar Datos",
+                    type: "Emphasized",
+                    press: function () {
+                        loadAttendanceData();
+                    }
+                });
+
+                // Texto para mostrar el contador
+                var oCountText = new Text({
+                    text: "Total de registros: {/count}"
+                });
+
+                // Panel principal
+                var oPanel = new Panel({
+                    headerText: "Registros de Asistencia",
+                    content: [
+                        new VBox({
+                            items: [
+                                (function () {
+                                    var hbox = new HBox({
+                                        items: [oRefreshButton, oCountText]
+                                    });
+                                    hbox.addStyleClass("sapUiMediumMarginBottom");
+                                    return hbox;
+                                })(),
+                                oTable
+                            ]
+                        })
+                    ]
+                });
+
+                // Establecer modelo
+                oPanel.setModel(oModel);
+                oTable.setModel(oModel);
+                oCountText.setModel(oModel);
+
+                // Renderizar en el contenedor
+                oPanel.placeAt("content");
+
+                // Cargar datos iniciales
+                loadAttendanceData();
+            });
+        });
+    </script>
+</body>
+
+</html>

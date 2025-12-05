@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfiles - Administración de Usuarios (VERSIÓN CORREGIDA)</title>
+    <script src="https://sapui5.hana.ondemand.com/resources/sap-ui-core.js"
+            data-sap-ui-theme="sap_fiori_3"
+            data-sap-ui-libs="sap.m,sap.ui.core,sap.ui.table"
+            data-sap-ui-async="true"></script>
+    <style>
+        .header { background:#8e44ad;color:#fff;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 4px rgba(0,0,0,0.1) }
+        .content { padding:0; max-width:100%; margin:0; height:calc(100vh - 64px); display:flex; flex-direction:column }
+        #usersTable { height:100%; }
+        .dropdown-menu { display:none;position:absolute;right:0;background:#fff;min-width:220px;box-shadow:0 8px 16px rgba(0,0,0,0.2);z-index:1000;border-radius:8px;overflow:hidden;margin-top:5px }
+        .user-avatar { width:40px;height:40px;border-radius:50%;background:#ffffff;color:#8e44ad;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:16px }
+        .status-panel { margin:10px;padding:15px;border-radius:5px; }
+        .status-success { background:#efe;border:1px solid #4caf50;color:#2e7d32; }
+        .status-error { background:#fee;border:1px solid #f44336;color:#c62828; }
+        .status-loading { background:#eef;border:1px solid #2196f3;color:#1565c0; }
+        .debug-panel { margin:10px;padding:10px;background:#f8f8f8;border:1px solid #ddd;border-radius:4px;font-family:monospace;font-size:11px; }
+        .data-preview { margin:10px;max-height:200px;overflow:auto;background:#f8f8f8;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:11px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display:flex;align-items:center;gap:16px">
+            <h1 style="margin:0">Perfiles de Usuario - VERSIÓN CORREGIDA</h1>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input id="headerSearch" type="text" placeholder="DNI o Nombre" style="padding:8px;border-radius:6px;border:1px solid #ddd;min-width:240px">
+                <select id="headerEstado" style="padding:8px;border-radius:6px;border:1px solid #ddd">
+                    <option value="">Todos</option>
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+                <button onclick="filterLoadHeader()" style="padding:8px 12px;border-radius:6px;border:1px solid #8e44ad;background:#8e44ad;color:#fff">Buscar</button>
+                <button onclick="loadUsers()" style="padding:8px 12px;border-radius:6px;border:1px solid #4caf50;background:#4caf50;color:#fff">Refrescar</button>
+            </div>
+        </div>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">U</div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-header" id="dropdownHeader" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e9ecef;font-weight:bold;color:#495057">Administrador</div>
+                <a href="/asistenciaV2r/dashboard_admin.html" class="dropdown-item" style="padding:12px 16px;display:block">🏠 Dashboard Admin</a>
+                <a href="/asistenciaV2r/biometric_sync.html" class="dropdown-item" style="padding:12px 16px;display:block">🔄 Sincronización</a>
+                <a href="/asistenciaV2r/procesados.html" class="dropdown-item" style="padding:12px 16px;display:block">📋 Procesados</a>
+                <a href="/asistenciaV2r/permisos.html" class="dropdown-item" style="padding:12px 16px;display:block">🔐 Permisos</a>
+                <a href="/asistenciaV2r/consolidado.html" class="dropdown-item" style="padding:12px 16px;display:block">📊 Consolidado</a>
+                <a href="/asistenciaV2r/perfiles.html" class="dropdown-item" style="padding:12px 16px;display:block">👥 Perfiles</a>
+                <a href="/asistenciaV2r/logout" class="dropdown-item logout" style="padding:12px 16px;display:block;border-top:1px solid #e9ecef;color:#dc3545">🚪 Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+    
+    <div id="statusPanel" class="status-panel status-loading">
+        <strong>Estado:</strong> <span id="statusText">Inicializando aplicación...</span>
+    </div>
+    
+    <div id="debugPanel" class="debug-panel" style="display:none;">
+        <strong>Debug:</strong> <span id="debugText">Esperando...</span>
+    </div>
+    
+    <div id="dataPreview" class="data-preview" style="display:none;">
+        <strong>Vista previa de datos:</strong>
+        <div id="dataContent"></div>
+    </div>
+    
+    <div class="content">
+        <div id="usersTable"></div>
+    </div>
+    
+    <script>
+        let oTable = null;
+        let oModel = null;
+        let currentData = [];
+        let debugMode = true;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            console.log(`[PERFILES-CORREGIDO] ${prefix} ${message}`);
+            
+            if (debugMode) {
+                document.getElementById('debugPanel').style.display = 'block';
+                document.getElementById('debugText').textContent = `${timestamp} - ${message}`;
+            }
+        }
+        
+        function setStatus(message, type = 'loading') {
+            const statusPanel = document.getElementById('statusPanel');
+            const statusText = document.getElementById('statusText');
+            
+            statusPanel.className = `status-panel status-${type}`;
+            statusText.textContent = message;
+            
+            log(`Estado: ${message}`, type);
+        }
+        
+        function toggleDropdown(){ 
+            const d=document.getElementById('dropdownMenu'); 
+            d.classList.toggle('show'); 
+            d.style.display=d.classList.contains('show')?'block':'none'; 
+        }
+        
+        window.onclick=function(e){ 
+            if(!e.target.matches('.user-avatar')){ 
+                const ds=document.getElementsByClassName('dropdown-menu'); 
+                for(let i=0;i<ds.length;i++){ 
+                    ds[i].classList.remove('show'); 
+                    ds[i].style.display='none'; 
+                } 
+            } 
+        };
+        
+        function loadUserInfo(){ 
+            log('Cargando información de usuario...');
+            fetch('/asistenciaV2r/userInfo')
+                .then(r=>r.text())
+                .then(t=>{ 
+                    try{ 
+                        const j=JSON.parse(t); 
+                        if(j.success){ 
+                            const a=document.getElementById('userAvatar'); 
+                            a.textContent=(j.name||'U').charAt(0).toUpperCase(); 
+                            document.getElementById('dropdownHeader').textContent=j.name||'Administrador'; 
+                            log('Información de usuario cargada: ' + j.name, 'success');
+                        } else {
+                            log('Usuario no autenticado', 'warning');
+                        }
+                    } catch(e){
+                        log('Error parseando información de usuario: ' + e.message, 'error');
+                    }
+                })
+                .catch(e => {
+                    log('Error cargando información de usuario: ' + e.message, 'error');
+                });
+        }
+        
+        // Función mejorada para cargar usuarios con manejo robusto de errores
+        function loadUsers(q, estado) {
+            setStatus('Cargando usuarios...', 'loading');
+            
+            const qs = new URLSearchParams();
+            if (q) qs.append('q', q);
+            if (estado) qs.append('estado', estado);
+            
+            const url = '/asistenciaV2r/api/users?' + qs.toString();
+            log(`Solicitando usuarios desde: ${url}`);
+            
+            fetch(url, { credentials: 'include' })
+                .then(response => {
+                    log(`Respuesta recibida: ${response.status} ${response.statusText}`);
+                    
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+                        });
+                    }
+                    
+                    const contentType = response.headers.get('content-type');
+                    log(`Content-Type: ${contentType}`);
+                    
+                    if (!contentType || !contentType.includes('application/json')) {
+                        return response.text().then(text => {
+                            throw new Error(`Respuesta no JSON: ${text.substring(0, 200)}`);
+                        });
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    log(`Datos recibidos: ${Array.isArray(data) ? data.length : 'no es array'} elementos`);
+                    
+                    if (!Array.isArray(data)) {
+                        throw new Error(`Los datos no son un array: ${JSON.stringify(data).substring(0, 200)}`);
+                    }
+                    
+                    if (data.length === 0) {
+                        log('No se encontraron usuarios', 'warning');
+                        setStatus('No se encontraron usuarios', 'error');
+                    } else {
+                        log(`Usuarios cargados exitosamente: ${data.length}`, 'success');
+                        setStatus(`Usuarios cargados: ${data.length}`, 'success');
+                    }
+                    
+                    // Mostrar vista previa de datos
+                    showDataPreview(data);
+                    
+                    // Actualizar el modelo de SAP UI5
+                    updateTableData(data);
+                    
+                    currentData = data;
+                })
+                .catch(error => {
+                    log(`Error al cargar usuarios: ${error.message}`, 'error');
+                    setStatus(`Error: ${error.message}`, 'error');
+                    
+                    // Intentar fallback con datos procesados
+                    log('Intentando fallback con datos procesados...', 'warning');
+                    tryFallbackData();
+                });
+        }
+        
+        function showDataPreview(data) {
+            const preview = document.getElementById('dataPreview');
+            const content = document.getElementById('dataContent');
+            
+            if (data.length > 0) {
+                const sample = data.slice(0, 3);
+                const previewText = JSON.stringify(sample, null, 2);
+                content.innerHTML = `<pre>${previewText}</pre>`;
+                preview.style.display = 'block';
+            }
+        }
+        
+        function updateTableData(data) {
+            try {
+                if (!oModel) {
+                    log('Modelo no inicializado, creando nuevo modelo...', 'warning');
+                    oModel = new sap.ui.model.json.JSONModel({ users: data });
+                } else {
+                    log('Actualizando modelo existente...');
+                    oModel.setProperty('/users', data);
+                }
+                
+                if (oTable) {
+                    log('Actualizando binding de la tabla...');
+                    oTable.setModel(oModel);
+                    oTable.bindRows('/users');
+                    log('Tabla actualizada exitosamente', 'success');
+                } else {
+                    log('Tabla no inicializada', 'error');
+                }
+            } catch (error) {
+                log(`Error actualizando tabla: ${error.message}`, 'error');
+                console.error('Error completo:', error);
+            }
+        }
+        
+        function tryFallbackData() {
+            const now = new Date();
+            const anio = now.getFullYear();
+            const mes = now.getMonth() + 1;
+            
+            fetch(`/asistenciaV2r/api/processed-data?anio=${anio}&mes=${mes}`, { credentials: 'include' })
+                .then(r => {
+                    log(`Fallback response: ${r.status}`);
+                    if (!r.ok) throw new Error('Fallback falló');
+                    return r.json();
+                })
+                .then(rows => {
+                    log(`Fallback datos recibidos: ${Array.isArray(rows) ? rows.length : 'no array'}`);
+                    
+                    const map = {};
+                    (Array.isArray(rows) ? rows : []).forEach(x => {
+                        if (!x || !x.dni) return;
+                        const dni = x.dni;
+                        if (map[dni]) return;
+                        
+                        map[dni] = {
+                            id: x.id || 0,
+                            dni: x.dni,
+                            nombre: x.nombre || '',
+                            apellidos: '',
+                            email: '',
+                            rol: 'USER',
+                            estado: 1
+                        };
+                    });
+                    
+                    const fallbackData = Object.values(map);
+                    log(`Datos de fallback procesados: ${fallbackData.length} usuarios`, 'success');
+                    
+                    setStatus(`Usuarios (fallback): ${fallbackData.length}`, 'success');
+                    showDataPreview(fallbackData);
+                    updateTableData(fallbackData);
+                    
+                    currentData = fallbackData;
+                })
+                .catch(fallbackError => {
+                    log(`Fallback también falló: ${fallbackError.message}`, 'error');
+                    setStatus('Error crítico: No se pudieron cargar usuarios', 'error');
+                });
+        }
+        
+        function buildUsersTable() {
+            log('Inicializando SAP UI5 y construyendo tabla...');
+            
+            try {
+                // Crear modelo inicial
+                oModel = new sap.ui.model.json.JSONModel({ users: [] });
+                log('Modelo JSON creado');
+                
+                // Crear tabla con configuración mejorada
+                oTable = new sap.ui.table.Table({ 
+                    title: 'Usuarios del Sistema',
+                    selectionMode: sap.ui.table.SelectionMode.None,
+                    width: '100%',
+                    visibleRowCountMode: sap.ui.table.VisibleRowCountMode.Auto,
+                    minAutoRowCount: 15,
+                    rowHeight: 36,
+                    alternateRowColors: true,
+                    enableColumnReordering: true,
+                    showNoData: true
+                });
+                
+                log('Tabla creada, configurando columnas...');
+                
+                // Configurar columnas con binding correcto
+                const columns = [
+                    {
+                        title: 'DNI',
+                        field: 'dni',
+                        width: '120px',
+                        filter: true
+                    },
+                    {
+                        title: 'Nombre',
+                        field: 'nombre',
+                        width: '150px',
+                        filter: true
+                    },
+                    {
+                        title: 'Apellidos',
+                        field: 'apellidos',
+                        width: '150px',
+                        filter: true
+                    },
+                    {
+                        title: 'Email',
+                        field: 'email',
+                        width: '200px',
+                        filter: true
+                    },
+                    {
+                        title: 'Rol',
+                        field: 'rol',
+                        width: '100px',
+                        filter: false
+                    },
+                    {
+                        title: 'Estado',
+                        field: 'estado',
+                        width: '100px',
+                        filter: false,
+                        formatter: function(value) {
+                            return value === 1 ? 'Activo' : 'Inactivo';
+                        }
+                    }
+                ];
+                
+                columns.forEach(col => {
+                    const column = new sap.ui.table.Column({
+                        label: new sap.m.Label({ text: col.title }),
+                        width: col.width,
+                        template: new sap.m.Text({
+                            text: {
+                                path: col.field,
+                                formatter: col.formatter || function(value) {
+                                    return value || '';
+                                }
+                            }
+                        })
+                    });
+                    
+                    if (col.filter) {
+                        column.setLabel(new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: col.title }),
+                                new sap.m.Input({
+                                    placeholder: 'Filtrar',
+                                    liveChange: function(e) {
+                                        const value = e.getSource().getValue();
+                                        applyFilter(col.field, value);
+                                    }
+                                })
+                            ]
+                        }));
+                    }
+                    
+                    oTable.addColumn(column);
+                });
+                
+                log('Columnas configuradas, asignando modelo...');
+                
+                // Asignar modelo y binding
+                oTable.setModel(oModel);
+                oTable.bindRows('/users');
+                
+                log('Modelo asignado y binding configurado');
+                
+                // Crear panel contenedor
+                const oPanel = new sap.m.Panel({
+                    width: '100%',
+                    height: '100%',
+                    content: [
+                        new sap.m.Toolbar({
+                            content: [
+                                new sap.m.Button({
+                                    text: 'Nuevo Usuario',
+                                    type: 'Emphasized',
+                                    press: openCreateDialog
+                                }),
+                                new sap.m.ToolbarSpacer(),
+                                new sap.m.Button({
+                                    text: 'Refrescar',
+                                    press: function() {
+                                        document.getElementById('headerSearch').value = '';
+                                        document.getElementById('headerEstado').value = '';
+                                        loadUsers();
+                                    }
+                                })
+                            ]
+                        }),
+                        oTable
+                    ]
+                });
+                
+                log('Panel creado, renderizando...');
+                oPanel.placeAt('usersTable');
+                
+                log('Tabla construida exitosamente', 'success');
+                setStatus('Tabla inicializada, cargando usuarios...', 'loading');
+                
+                // Cargar datos iniciales
+                setTimeout(function() {
+                    loadUsers();
+                }, 500);
+                
+            } catch (error) {
+                log(`Error construyendo tabla: ${error.message}`, 'error');
+                console.error('Error completo en buildUsersTable:', error);
+                setStatus(`Error construyendo tabla: ${error.message}`, 'error');
+            }
+        }
+        
+        function applyFilter(field, value) {
+            try {
+                if (!oTable) {
+                    log('No hay tabla para aplicar filtros', 'warning');
+                    return;
+                }
+                
+                const binding = oTable.getBinding('rows');
+                if (!binding) {
+                    log('No hay binding para aplicar filtros', 'warning');
+                    return;
+                }
+                
+                const filters = [];
+                if (value) {
+                    filters.push(new sap.ui.model.Filter(field, sap.ui.model.FilterOperator.Contains, value));
+                }
+                
+                binding.filter(filters);
+                log(`Filtro aplicado en ${field}: ${value || 'sin filtro'}`);
+                
+            } catch (error) {
+                log(`Error aplicando filtro: ${error.message}`, 'error');
+            }
+        }
+        
+        function filterLoadHeader() {
+            const q = document.getElementById('headerSearch').value;
+            const est = document.getElementById('headerEstado').value;
+            log(`Filtro aplicado: búsqueda="${q}", estado="${est}"`);
+            loadUsers(q, est);
+        }
+        
+        function openCreateDialog() {
+            // Implementar diálogo de creación si es necesario
+            log('Función de crear usuario no implementada en esta versión', 'warning');
+        }
+        
+        // Inicialización
+        sap.ui.getCore().attachInit(function() {
+            log('SAP UI5 inicializado correctamente', 'success');
+            loadUserInfo();
+            buildUsersTable();
+        });
+        
+        // Manejo global de errores
+        window.addEventListener('error', function(e) {
+            log(`Error global: ${e.message} en ${e.filename}:${e.lineno}`, 'error');
+            setStatus(`Error JavaScript: ${e.message}`, 'error');
+        });
+    </script>
+</body>
+</html>

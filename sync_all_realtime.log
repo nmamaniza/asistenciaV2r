@@ -1,0 +1,118 @@
+2025-11-13 02:26:03,065 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 02:26:03,068 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 02:26:03,076 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 02:26:03,132 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 02:26:03,141 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 02:39:39,384 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 02:39:39,386 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 02:39:39,392 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 02:39:39,443 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 02:39:39,461 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 02:43:11,522 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 02:43:11,526 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 02:43:11,529 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 02:43:11,589 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 02:43:11,603 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 02:43:12,804 - ERROR - Error procesando marcación 73697605: 'RealtimeAttendanceSync' object has no attribute 'get_user_info'
+2025-11-13 02:43:12,805 - ERROR - Error sincronizando reloj2: 'error'
+2025-11-13 02:43:13,047 - ERROR - Error procesando marcación 76770588: 'RealtimeAttendanceSync' object has no attribute 'get_user_info'
+2025-11-13 02:43:13,048 - ERROR - Error sincronizando reloj1: 'error'
+2025-11-13 02:47:15,008 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 02:47:15,009 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 02:47:15,010 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 02:47:15,059 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 02:47:15,060 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 02:49:14,133 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 02:49:14,134 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 02:49:14,139 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 02:49:14,184 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 02:49:14,200 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 02:59:03,882 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 02:59:03,884 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 02:59:03,885 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 02:59:03,957 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 02:59:03,983 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 03:11:08,682 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 03:11:08,685 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 03:11:08,693 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 03:11:08,762 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 03:11:08,769 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 03:13:26,674 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 03:13:26,676 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 03:13:26,678 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 03:13:26,727 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 03:13:26,730 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 03:14:48,107 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 03:14:48,108 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 03:14:48,108 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 03:14:48,155 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 03:14:48,163 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-13 03:21:14,521 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-13 03:21:14,522 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-13 03:21:14,530 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-13 03:21:14,565 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-13 03:21:14,572 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-14 10:57:01,762 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-14 10:57:01,770 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-14 10:57:01,777 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-14 10:57:01,818 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-14 10:57:01,824 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-18 10:04:39,213 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-18 10:04:39,229 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-18 10:04:39,235 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-18 10:04:39,301 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-18 10:04:39,306 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-19 10:52:13,557 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-19 10:52:13,571 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-19 10:52:13,572 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-19 10:52:13,651 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-19 10:52:13,652 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-27 22:30:01,412 - ERROR - ❌ Error inicializando pool de conexiones: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:01,413 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-27 22:30:01,414 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-27 22:30:02,619 - INFO - ✅ Conectado exitosamente a reloj2
+2025-11-27 22:30:02,683 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-27 22:30:11,401 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:11,401 - ERROR - Error obteniendo información del día: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:13,449 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:13,449 - ERROR - Error obteniendo información del día: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:16,841 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:16,841 - ERROR - Error obteniendo información del usuario 73697605: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:18,974 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:18,975 - ERROR - Error obteniendo información del usuario 76770588: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:22,266 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:22,266 - ERROR - Error verificando duplicado: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:24,499 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:24,499 - ERROR - Error verificando duplicado: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:27,783 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:27,783 - ERROR - Error insertando marcación en BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:27,783 - ERROR - Error procesando marcación 73697605: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:27,783 - ERROR - Error sincronizando reloj2: 'error'
+2025-11-27 22:30:30,022 - ERROR - Error en conexión a BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:30,022 - ERROR - Error insertando marcación en BD: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:30,022 - ERROR - Error procesando marcación 76770588: connection to server at "172.16.1.61", port 5432 failed: FATAL:  no pg_hba.conf entry for host "192.168.113.4", user "nestor", database "asistenciaV2r", no encryption
+
+2025-11-27 22:30:30,022 - ERROR - Error sincronizando reloj1: 'error'
+2025-11-27 22:31:08,802 - INFO - 🔗 Pool de conexiones a BD inicializado
+2025-11-27 22:31:08,805 - INFO - 🔄 Intento 1/3 - Conectando a reloj1 (172.16.250.3)
+2025-11-27 22:31:08,806 - INFO - 🔄 Intento 1/3 - Conectando a reloj2 (172.16.250.4)
+2025-11-27 22:31:09,879 - INFO - ✅ Conectado exitosamente a reloj1
+2025-11-27 22:31:09,929 - INFO - ✅ Conectado exitosamente a reloj2

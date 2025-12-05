@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfiles - Administración de Usuarios (MEJORADO)</title>
+    <script src="https://sapui5.hana.ondemand.com/resources/sap-ui-core.js"
+            data-sap-ui-theme="sap_fiori_3"
+            data-sap-ui-libs="sap.m,sap.ui.core,sap.ui.table"
+            data-sap-ui-async="true"></script>
+    <style>
+        .header { background:#8e44ad;color:#fff;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 4px rgba(0,0,0,0.1) }
+        .content { padding:0; max-width:100%; margin:0; height:calc(100vh - 64px); display:flex; flex-direction:column }
+        #usersTable { height:100%; }
+        .dropdown-menu { display:none;position:absolute;right:0;background:#fff;min-width:220px;box-shadow:0 8px 16px rgba(0,0,0,0.2);z-index:1000;border-radius:8px;overflow:hidden;margin-top:5px }
+        .user-avatar { width:40px;height:40px;border-radius:50%;background:#ffffff;color:#8e44ad;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:16px }
+        .error-panel { background:#fee; border:1px solid #fcc; padding:15px; margin:10px; border-radius:5px; display:none; }
+        .loading-panel { background:#eef; border:1px solid #ccf; padding:15px; margin:10px; border-radius:5px; display:none; }
+        .debug-info { background:#ffe; border:1px solid #eea; padding:10px; margin:10px; border-radius:5px; font-size:12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display:flex;align-items:center;gap:16px">
+            <h1 style="margin:0">Perfiles de Usuario</h1>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input id="headerSearch" type="text" placeholder="DNI o Nombre" style="padding:8px;border-radius:6px;border:1px solid #ddd;min-width:240px">
+                <select id="headerEstado" style="padding:8px;border-radius:6px;border:1px solid #ddd">
+                    <option value="">Todos</option>
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+                <button onclick="filterLoadHeader()" style="padding:8px 12px;border-radius:6px;border:1px solid #8e44ad;background:#8e44ad;color:#fff">Buscar</button>
+            </div>
+        </div>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">U</div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="dropdown-header" id="dropdownHeader" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e9ecef;font-weight:bold;color:#495057">Administrador</div>
+                <a href="/asistenciaV2r/dashboard_admin.html" class="dropdown-item" style="padding:12px 16px;display:block">🏠 Dashboard Admin</a>
+                <a href="/asistenciaV2r/biometric_sync.html" class="dropdown-item" style="padding:12px 16px;display:block">🔄 Sincronización</a>
+                <a href="/asistenciaV2r/procesados.html" class="dropdown-item" style="padding:12px 16px;display:block">📋 Procesados</a>
+                <a href="/asistenciaV2r/permisos.html" class="dropdown-item" style="padding:12px 16px;display:block">🔐 Permisos</a>
+                <a href="/asistenciaV2r/consolidado.html" class="dropdown-item" style="padding:12px 16px;display:block">📊 Consolidado</a>
+                <a href="/asistenciaV2r/perfiles.html" class="dropdown-item" style="padding:12px 16px;display:block">👥 Perfiles</a>
+                <a href="/asistenciaV2r/logout" class="dropdown-item logout" style="padding:12px 16px;display:block;border-top:1px solid #e9ecef;color:#dc3545">🚪 Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="error-panel" id="errorPanel">
+        <h3>❌ Error al cargar datos</h3>
+        <div id="errorDetails"></div>
+        <button onclick="retryLoadUsers()" style="margin-top:10px;padding:8px 16px;background:#8e44ad;color:white;border:none;border-radius:4px;cursor:pointer">Reintentar</button>
+    </div>
+    
+    <div class="loading-panel" id="loadingPanel">
+        <h3>⏳ Cargando usuarios...</h3>
+        <div id="loadingDetails"></div>
+    </div>
+    
+    <div class="debug-info" id="debugInfo">
+        <strong>Debug Info:</strong> <span id="debugText">Iniciando...</span>
+    </div>
+    
+    <div class="content">
+        <div id="usersTable"></div>
+    </div>
+    
+    <script>
+        let currentUserData = [];
+        let debugMode = true;
+        
+        function logDebug(message) {
+            if (debugMode) {
+                console.log('[DEBUG PERFILES]', message);
+                document.getElementById('debugText').textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            }
+        }
+        
+        function showError(title, details) {
+            document.getElementById('errorDetails').innerHTML = `<strong>${title}</strong><br>${details}`;
+            document.getElementById('errorPanel').style.display = 'block';
+            document.getElementById('loadingPanel').style.display = 'none';
+            logDebug('ERROR: ' + title + ' - ' + details);
+        }
+        
+        function showLoading(message) {
+            document.getElementById('loadingDetails').innerHTML = message;
+            document.getElementById('loadingPanel').style.display = 'block';
+            document.getElementById('errorPanel').style.display = 'none';
+            logDebug('LOADING: ' + message);
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingPanel').style.display = 'none';
+        }
+        
+        function toggleDropdown(){ 
+            const d=document.getElementById('dropdownMenu'); 
+            d.classList.toggle('show'); 
+            d.style.display=d.classList.contains('show')?'block':'none'; 
+        }
+        
+        window.onclick=function(e){ 
+            if(!e.target.matches('.user-avatar')){ 
+                const ds=document.getElementsByClassName('dropdown-menu'); 
+                for(let i=0;i<ds.length;i++){ 
+                    ds[i].classList.remove('show'); 
+                    ds[i].style.display='none'; 
+                } 
+            } 
+        };
+        
+        function loadUserInfo(){ 
+            logDebug('Cargando info de usuario...');
+            fetch('/asistenciaV2r/userInfo')
+                .then(r=>r.text())
+                .then(t=>{ 
+                    try{ 
+                        const j=JSON.parse(t); 
+                        if(j.success){ 
+                            const a=document.getElementById('userAvatar'); 
+                            a.textContent=(j.name||'U').charAt(0).toUpperCase(); 
+                            document.getElementById('dropdownHeader').textContent=j.name||'Administrador'; 
+                            logDebug('Info usuario cargada: ' + j.name);
+                        } else {
+                            logDebug('Usuario no autenticado');
+                        }
+                    } catch(e){
+                        logDebug('Error parseando info usuario: ' + e.message);
+                    }
+                })
+                .catch(e => {
+                    logDebug('Error cargando info usuario: ' + e.message);
+                });
+        }
+        
+        sap.ui.getCore().attachInit(function(){ 
+            logDebug('SAP UI5 inicializado');
+            loadUserInfo(); 
+            buildUsersTable(); 
+        });
+
+        function buildUsersTable(){
+            logDebug('Construyendo tabla de usuarios...');
+            
+            const model = new sap.ui.model.json.JSONModel({ users: [] });
+            const table = new sap.ui.table.Table({ 
+                title:'Usuarios', 
+                selectionMode: sap.ui.table.SelectionMode.None, 
+                width:'100%', 
+                visibleRowCountMode: sap.ui.table.VisibleRowCountMode.Auto, 
+                minAutoRowCount: 18, 
+                rowHeight: 36 
+            });
+
+            var filterState = { dni:'', nombre:'', apellidos:'', email:'', rol:'', estado:'' };
+            
+            function setFilter(key, val){ 
+                filterState[key] = val; 
+                applyFilters(); 
+            }
+            
+            function applyFilters(){
+                logDebug('Aplicando filtros: ' + JSON.stringify(filterState));
+                var filters = [];
+                var FO = sap.ui.model.FilterOperator;
+                
+                function addContains(prop){ 
+                    var v = filterState[prop]; 
+                    if (v) filters.push(new sap.ui.model.Filter(prop, FO.Contains, v)); 
+                }
+                
+                addContains('dni'); 
+                addContains('nombre'); 
+                addContains('apellidos'); 
+                addContains('email');
+                
+                if (filterState.rol) filters.push(new sap.ui.model.Filter('rol', FO.EQ, filterState.rol));
+                if (filterState.estado) filters.push(new sap.ui.model.Filter('estado', FO.EQ, parseInt(filterState.estado,10)));
+                
+                try {
+                    const binding = table.getBinding('rows');
+                    if (binding) {
+                        binding.filter(filters);
+                        logDebug('Filtros aplicados: ' + filters.length + ' filtros activos');
+                    } else {
+                        logDebug('No hay binding para aplicar filtros');
+                    }
+                } catch (e) {
+                    logDebug('Error aplicando filtros: ' + e.message);
+                }
+            }
+
+            // Configurar columnas
+            table.addColumn(new sap.ui.table.Column({ 
+                label:new sap.m.VBox({ 
+                    items:[ 
+                        new sap.m.Label({text:'DNI'}), 
+                        new sap.m.Input({ 
+                            placeholder:'Filtrar', 
+                            liveChange:function(e){ 
+                                setFilter('dni', e.getSource().getValue()); 
+                            } 
+                        }) 
+                    ] 
+                }), 
+                template:new sap.m.Text({text:'{dni}'}), 
+                width:'140px' 
+            }));
+            
+            table.addColumn(new sap.ui.table.Column({ 
+                label:new sap.m.VBox({ 
+                    items:[ 
+                        new sap.m.Label({text:'Nombre'}), 
+                        new sap.m.Input({ 
+                            placeholder:'Filtrar', 
+                            liveChange:function(e){ 
+                                setFilter('nombre', e.getSource().getValue()); 
+                            } 
+                        }) 
+                    ] 
+                }), 
+                template:new sap.m.Text({text:'{nombre}'}), 
+                width:'180px' 
+            }));
+            
+            table.addColumn(new sap.ui.table.Column({ 
+                label:new sap.m.VBox({ 
+                    items:[ 
+                        new sap.m.Label({text:'Apellidos'}), 
+                        new sap.m.Input({ 
+                            placeholder:'Filtrar', 
+                            liveChange:function(e){ 
+                                setFilter('apellidos', e.getSource().getValue()); 
+                            } 
+                        }) 
+                    ] 
+                }), 
+                template:new sap.m.Text({text:'{apellidos}'}), 
+                width:'200px' 
+            }));
+            
+            table.addColumn(new sap.ui.table.Column({ 
+                label:new sap.m.VBox({ 
+                    items:[ 
+                        new sap.m.Label({text:'Email'}), 
+                        new sap.m.Input({ 
+                            placeholder:'Filtrar', 
+                            liveChange:function(e){ 
+                                setFilter('email', e.getSource().getValue()); 
+                            } 
+                        }) 
+                    ] 
+                }), 
+                template:new sap.m.Text({text:'{email}'}), 
+                width:'240px' 
+            }));
+            
+            table.addColumn(new sap.ui.table.Column({ 
+                label:new sap.m.VBox({ 
+                    items:[ 
+                        new sap.m.Label({text:'Rol'}), 
+                        new sap.m.Select({ 
+                            change:function(e){ 
+                                setFilter('rol', e.getSource().getSelectedKey()); 
+                            }, 
+                            items:[ 
+                                new sap.ui.core.Item({key:'', text:'Todos'}), 
+                                new sap.ui.core.Item({key:'ADMIN', text:'ADMIN'}), 
+                                new sap.ui.core.Item({key:'USER', text:'USER'}) 
+                            ] 
+                        }) 
+                    ] 
+                }), 
+                template:new sap.m.Text({text:'{rol}'}), 
+                width:'140px' 
+            }));
+            
+            table.addColumn(new sap.ui.table.Column({ 
+                label:new sap.m.VBox({ 
+                    items:[ 
+                        new sap.m.Label({text:'Estado'}), 
+                        new sap.m.Select({ 
+                            change:function(e){ 
+                                setFilter('estado', e.getSource().getSelectedKey()); 
+                            }, 
+                            items:[ 
+                                new sap.ui.core.Item({key:'', text:'Todos'}), 
+                                new sap.ui.core.Item({key:'1', text:'Activo'}), 
+                                new sap.ui.core.Item({key:'0', text:'Inactivo'}) 
+                            ] 
+                        }) 
+                    ] 
+                }), 
+                template:new sap.m.Text({ 
+                    text: { 
+                        path:'estado', 
+                        formatter: function(v){ 
+                            return (parseInt(v,10)===1)?'Activo':'Inactivo'; 
+                        } 
+                    } 
+                }), 
+                width:'140px' 
+            }));
+
+            table.setModel(model); 
+            table.bindRows('/users');
+            
+            const oPanel = new sap.m.Panel({ 
+                width:'100%', 
+                height:'100%', 
+                content:[
+                    new sap.m.Toolbar({ 
+                        content:[
+                            new sap.m.Button({ 
+                                text:'Nuevo Usuario', 
+                                type:'Emphasized', 
+                                press: openCreateDialog 
+                            }),
+                            new sap.m.ToolbarSpacer(),
+                            new sap.m.Button({ 
+                                text:'Refrescar', 
+                                press: function(){ 
+                                    document.getElementById('headerSearch').value=''; 
+                                    document.getElementById('headerEstado').value=''; 
+                                    loadUsers(); 
+                                } 
+                            })
+                        ]
+                    }), 
+                    table 
+                ] 
+            });
+            
+            oPanel.placeAt('usersTable');
+            logDebug('Tabla construida exitosamente');
+            
+            // Cargar usuarios inicialmente
+            setTimeout(loadUsers, 500);
+        }
+        
+        function filterLoadHeader(){
+            const q = document.getElementById('headerSearch').value;
+            const est = document.getElementById('headerEstado').value;
+            logDebug('Filtro header: q=' + q + ', estado=' + est);
+            loadUsers(q, est);
+        }
+        
+        function retryLoadUsers() {
+            document.getElementById('errorPanel').style.display = 'none';
+            loadUsers();
+        }
+        
+        function loadUsers(q, estado){
+            showLoading('Cargando usuarios desde el servidor...');
+            
+            const qs = new URLSearchParams();
+            if (q) qs.append('q', q);
+            if (estado) qs.append('estado', estado);
+            
+            const url = '/asistenciaV2r/api/users?' + qs.toString();
+            logDebug('Solicitando: ' + url);
+            
+            fetch(url, { credentials: 'include' })
+                .then(r => {
+                    logDebug('Respuesta recibida. Status: ' + r.status + ', StatusText: ' + r.statusText);
+                    const ct = r.headers.get('content-type') || '';
+                    logDebug('Content-Type: ' + ct);
+                    
+                    if (!r.ok) {
+                        return r.text().then(t => {
+                            throw new Error(`HTTP ${r.status}: ${t || r.statusText}`);
+                        });
+                    }
+                    
+                    if (!ct || ct.indexOf('application/json') === -1) {
+                        return r.text().then(t => {
+                            throw new Error(`Respuesta no JSON: ${t.substring(0, 200)}`);
+                        });
+                    }
+                    
+                    return r.json();
+                })
+                .then(list => {
+                    logDebug('Datos recibidos. Tipo: ' + typeof list + ', Es array: ' + Array.isArray(list));
+                    
+                    if (!Array.isArray(list)) {
+                        throw new Error('Los datos no son un array: ' + JSON.stringify(list).substring(0, 200));
+                    }
+                    
+                    currentUserData = list;
+                    
+                    try {
+                        const model = sap.ui.getCore().getModel();
+                        if (model) {
+                            model.setProperty('/users', list);
+                        } else {
+                            // Buscar el modelo de la tabla
+                            const table = sap.ui.getCore().byId('usersTable');
+                            if (table && table.getModel()) {
+                                table.getModel().setProperty('/users', list);
+                            } else {
+                                logDebug('No se encontró modelo para actualizar');
+                            }
+                        }
+                        
+                        hideLoading();
+                        sap.m.MessageToast.show('Usuarios cargados: ' + list.length);
+                        logDebug('Usuarios cargados exitosamente: ' + list.length);
+                        
+                    } catch (e) {
+                        logDebug('Error actualizando modelo: ' + e.message);
+                        throw e;
+                    }
+                })
+                .catch(e => {
+                    logDebug('Error en loadUsers: ' + e.message);
+                    hideLoading();
+                    
+                    // Intentar fallback con datos procesados
+                    logDebug('Intentando fallback con datos procesados...');
+                    
+                    const now = new Date();
+                    const anio = now.getFullYear();
+                    const mes = now.getMonth() + 1;
+                    
+                    fetch('/asistenciaV2r/api/processed-data?anio=' + anio + '&mes=' + mes, { credentials: 'include' })
+                        .then(r => {
+                            logDebug('Fallback response status: ' + r.status);
+                            if (!r.ok) throw new Error('Fallback también falló');
+                            return r.json();
+                        })
+                        .then(rows => {
+                            logDebug('Fallback datos recibidos: ' + (Array.isArray(rows) ? rows.length : 'no array'));
+                            
+                            const map = {};
+                            (Array.isArray(rows)?rows:[]).forEach(x => { 
+                                if (!x) return; 
+                                const dni = x.dni; 
+                                if (!dni || map[dni]) return; 
+                                map[dni] = {
+                                    dni: x.dni,
+                                    nombre: x.nombre || '',
+                                    apellidos: '',
+                                    email: '',
+                                    rol: 'USER',
+                                    estado: 1
+                                }; 
+                            });
+                            
+                            const list = Object.values(map);
+                            currentUserData = list;
+                            
+                            try {
+                                const table = sap.ui.getCore().byId('usersTable');
+                                if (table && table.getModel()) {
+                                    table.getModel().setProperty('/users', list);
+                                }
+                                
+                                sap.m.MessageToast.show('Usuarios (fallback) cargados: ' + list.length);
+                                logDebug('Fallback exitoso: ' + list.length + ' usuarios');
+                            } catch (updateError) {
+                                logDebug('Error en fallback: ' + updateError.message);
+                            }
+                        })
+                        .catch(fallbackError => {
+                            logDebug('Fallback también falló: ' + fallbackError.message);
+                            showError('Error al cargar usuarios', e.message + '<br><br>El fallback también falló: ' + fallbackError.message);
+                        });
+                });
+        }
+        
+        function openCreateDialog(){
+            const dlg = new sap.m.Dialog({ 
+                title:'Nuevo Usuario', 
+                contentWidth:'400px', 
+                content:[
+                    new sap.m.VBox({ 
+                        items:[
+                            new sap.m.Label({text:'DNI'}), new sap.m.Input({id:'uDni'}),
+                            new sap.m.Label({text:'Nombre'}), new sap.m.Input({id:'uNombre'}),
+                            new sap.m.Label({text:'Apellidos'}), new sap.m.Input({id:'uApellidos'}),
+                            new sap.m.Label({text:'Email'}), new sap.m.Input({id:'uEmail'}),
+                            new sap.m.Label({text:'Contraseña'}), new sap.m.Input({id:'uPass', type:'Password'}),
+                            new sap.m.Label({text:'Rol (ADMIN/USER)'}), new sap.m.Select({id:'uRolSel', selectedKey:'USER', items:[ new sap.ui.core.Item({key:'ADMIN', text:'ADMIN'}), new sap.ui.core.Item({key:'USER', text:'USER'}) ]})
+                        ]
+                    })
+                ], 
+                beginButton: new sap.m.Button({ 
+                    text:'Crear', 
+                    type:'Emphasized', 
+                    press:function(){
+                        const qs = new URLSearchParams();
+                        qs.append('dni', sap.ui.getCore().byId('uDni').getValue());
+                        qs.append('nombre', sap.ui.getCore().byId('uNombre').getValue());
+                        qs.append('apellidos', sap.ui.getCore().byId('uApellidos').getValue());
+                        qs.append('email', sap.ui.getCore().byId('uEmail').getValue());
+                        qs.append('password', sap.ui.getCore().byId('uPass').getValue());
+                        qs.append('rol', sap.ui.getCore().byId('uRolSel').getSelectedKey());
+                        
+                        fetch('/asistenciaV2r/api/users', { 
+                            method:'POST', 
+                            headers:{'Content-Type':'application/x-www-form-urlencoded'}, 
+                            body: qs.toString(), 
+                            credentials: 'include' 
+                        })
+                        .then(r => { 
+                            const ct = r.headers.get('content-type') || ''; 
+                            if (!r.ok || ct.indexOf('application/json') === -1) { 
+                                return r.text().then(t => { throw new Error('Respuesta no JSON (' + r.status + '): ' + t.slice(0,200)); }); 
+                            } 
+                            return r.json(); 
+                        })
+                        .then(j=>{ 
+                            sap.m.MessageToast.show(j.message||'Creado'); 
+                            loadUsers(); 
+                        })
+                        .catch(e=> sap.m.MessageToast.show('Error: '+e.message));
+                        
+                        dlg.close();
+                    }
+                }), 
+                endButton: new sap.m.Button({ 
+                    text:'Cancelar', 
+                    press:function(){ 
+                        dlg.close(); 
+                    }
+                })
+            });
+            
+            dlg.open();
+        }
+        
+        // Manejo global de errores
+        window.addEventListener('error', function(e) {
+            logDebug('ERROR GLOBAL: ' + e.message + ' en ' + e.filename + ':' + e.lineno);
+            showError('Error de JavaScript', e.message + ' en ' + e.filename + ':' + e.lineno);
+        });
+        
+        // Verificar SAP UI5
+        if (typeof sap === 'undefined') {
+            showError('SAP UI5 no cargado', 'La biblioteca SAP UI5 no se ha cargado correctamente. Verifica la conexión a internet.');
+        }
+    </script>
+</body>
+</html>

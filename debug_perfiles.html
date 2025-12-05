@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Perfiles - Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug Perfiles de Usuario</h1>
+    
+    <div class="debug-section">
+        <h3>1. Test de Conexión a Base de Datos</h3>
+        <button onclick="testDatabaseConnection()">Probar Conexión DB</button>
+        <div id="dbResult"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>2. Test de Carga de Usuarios</h3>
+        <button onclick="testLoadUsers()">Cargar Usuarios</button>
+        <div id="usersResult"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>3. Test de Información de Usuario</h3>
+        <button onclick="testUserInfo()">Obtener Info Usuario</button>
+        <div id="userInfoResult"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>4. Errores de Consola</h3>
+        <div id="consoleErrors"></div>
+    </div>
+
+    <script>
+        // Capturar errores de consola
+        window.addEventListener('error', function(e) {
+            document.getElementById('consoleErrors').innerHTML += 
+                `<div class="error">Error: ${e.message} en ${e.filename}:${e.lineno}</div>`;
+        });
+
+        function testDatabaseConnection() {
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.innerHTML = '<div class="warning">Probando conexión...</div>';
+            
+            fetch('/asistenciaV2r/api/users', { 
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                console.log('Response status:', response.status);
+                console.log('Content-Type:', contentType);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        throw new Error(`Respuesta no JSON: ${text.substring(0, 200)}`);
+                    });
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                resultDiv.innerHTML = `<div class="success">✅ Conexión exitosa. Usuarios encontrados: ${Array.isArray(data) ? data.length : 'Error en formato'}</div>`;
+                console.log('Datos de usuarios:', data);
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                console.error('Error completo:', error);
+            });
+        }
+
+        function testLoadUsers() {
+            const resultDiv = document.getElementById('usersResult');
+            resultDiv.innerHTML = '<div class="warning">Cargando usuarios...</div>';
+            
+            // Test con diferentes parámetros
+            const tests = [
+                { url: '/asistenciaV2r/api/users', desc: 'Sin parámetros' },
+                { url: '/asistenciaV2r/api/users?estado=1', desc: 'Solo activos' },
+                { url: '/asistenciaV2r/api/users?estado=0', desc: 'Solo inactivos' },
+                { url: '/asistenciaV2r/api/users?q=test', desc: 'Con búsqueda' }
+            ];
+            
+            let results = '';
+            tests.forEach((test, index) => {
+                setTimeout(() => {
+                    fetch(test.url, { credentials: 'include' })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            results += `<div class="success">✅ ${test.desc}: ${Array.isArray(data) ? data.length : 0} usuarios</div>`;
+                            if (index === tests.length - 1) {
+                                resultDiv.innerHTML = results;
+                            }
+                        })
+                        .catch(error => {
+                            results += `<div class="error">❌ ${test.desc}: ${error.message}</div>`;
+                            if (index === tests.length - 1) {
+                                resultDiv.innerHTML = results;
+                            }
+                        });
+                }, index * 500);
+            });
+        }
+
+        function testUserInfo() {
+            const resultDiv = document.getElementById('userInfoResult');
+            resultDiv.innerHTML = '<div class="warning">Obteniendo info de usuario...</div>';
+            
+            fetch('/asistenciaV2r/userInfo', { credentials: 'include' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    try {
+                        const data = JSON.parse(text);
+                        resultDiv.innerHTML = `<div class="success">✅ Info usuario: ${JSON.stringify(data, null, 2)}</div>`;
+                    } catch (e) {
+                        resultDiv.innerHTML = `<div class="error">❌ Respuesta no JSON: ${text}</div>`;
+                    }
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                });
+        }
+
+        // Test automático al cargar la página
+        window.addEventListener('load', function() {
+            console.log('=== INICIANDO DEBUG DE PERFILES ===');
+            testUserInfo();
+            setTimeout(testDatabaseConnection, 1000);
+        });
+    </script>
+</body>
+</html>
