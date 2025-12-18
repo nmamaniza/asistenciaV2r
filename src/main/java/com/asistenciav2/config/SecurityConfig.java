@@ -21,86 +21,91 @@ import javax.sql.DataSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private DataSource dataSource;
+        @Autowired
+        private DataSource dataSource;
 
-    @Bean
-    public UserDetailsService userDetailsService() {
-        return new CustomUserDetailsService();
-    }
+        @Bean
+        public UserDetailsService userDetailsService() {
+                return new CustomUserDetailsService();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    @Bean
-    public AuthenticationSuccessHandler successHandler() {
-        return new CustomAuthenticationSuccessHandler();
-    }
+        @Bean
+        public AuthenticationSuccessHandler successHandler() {
+                return new CustomAuthenticationSuccessHandler();
+        }
 
-    @Bean
-    public PersistentTokenRepository persistentTokenRepository() {
-        JdbcTokenRepositoryImpl tokenRepository = new JdbcTokenRepositoryImpl();
-        tokenRepository.setDataSource(dataSource);
-        // Descomentar para crear la tabla automáticamente la primera vez
-        // tokenRepository.setCreateTableOnStartup(true);
-        return tokenRepository;
-    }
+        @Bean
+        public PersistentTokenRepository persistentTokenRepository() {
+                JdbcTokenRepositoryImpl tokenRepository = new JdbcTokenRepositoryImpl();
+                tokenRepository.setDataSource(dataSource);
+                // Descomentar para crear la tabla automáticamente la primera vez
+                // tokenRepository.setCreateTableOnStartup(true);
+                return tokenRepository;
+        }
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/", "/login.html", "/index.html", "/css/**", "/js/**", "/resources/**",
-                                "/searchAttendance", "/api/userInfo")
-                        .permitAll()
-                        .requestMatchers("/dashboard_admin.html", "/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/dashboard.html", "/user/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/perfiles.html").hasRole("ADMIN")
-                        .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/workschedules", "/api/jobassignments", "/api/jobassignments/**")
-                        .hasRole("ADMIN")
-                        .requestMatchers("/api/permissions", "/api/permission-types", "/api/lactation-schedules")
-                        .hasRole("ADMIN")
-                        .requestMatchers("/api/consolidated-data", "/api/consolidated-export", "/api/consolidated-time",
-                                "/api/consolidated-time-export")
-                        .hasRole("ADMIN")
-                        .anyRequest().authenticated())
-                .formLogin(form -> form
-                        .loginPage("/login.html")
-                        .loginProcessingUrl("/login")
-                        .usernameParameter("identifier")
-                        .passwordParameter("password")
-                        .successHandler(successHandler())
-                        .failureUrl("/login.html?error=true")
-                        .permitAll())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.sendRedirect("/login.html");
-                        }))
-                .rememberMe(remember -> remember
-                        .tokenRepository(persistentTokenRepository())
-                        .tokenValiditySeconds(2592000) // 30 días
-                        .userDetailsService(userDetailsService())
-                        .key("asistenciaV2rSecretKey")
-                        .rememberMeParameter("remember-me")
-                        .useSecureCookie(true))
-                .sessionManagement(session -> session
-                        .invalidSessionUrl("/login.html")
-                        .maximumSessions(1)
-                        .expiredUrl("/login.html?expired")
-                        .and()
-                        .sessionFixation().migrateSession())
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessUrl("/login.html")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
-                        .permitAll())
-                .csrf(csrf -> csrf.disable());
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+                http
+                                .authorizeHttpRequests(authz -> authz
+                                                .requestMatchers("/", "/login.html", "/index.html", "/css/**", "/js/**",
+                                                                "/resources/**",
+                                                                "/searchAttendance", "/api/userInfo")
+                                                .permitAll()
+                                                .requestMatchers("/dashboard_admin.html", "/admin/**").hasRole("ADMIN")
+                                                .requestMatchers("/dashboard.html", "/user/**")
+                                                .hasAnyRole("USER", "ADMIN")
+                                                .requestMatchers("/perfiles.html").hasRole("ADMIN")
+                                                .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
+                                                .requestMatchers("/api/workschedules", "/api/jobassignments",
+                                                                "/api/jobassignments/**")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers("/api/permissions", "/api/permission-types",
+                                                                "/api/lactation-schedules")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers("/api/consolidated-data", "/api/consolidated-export",
+                                                                "/api/consolidated-time",
+                                                                "/api/consolidated-time-export", "/api/calendar")
+                                                .hasRole("ADMIN")
+                                                .anyRequest().authenticated())
+                                .formLogin(form -> form
+                                                .loginPage("/login.html")
+                                                .loginProcessingUrl("/login")
+                                                .usernameParameter("identifier")
+                                                .passwordParameter("password")
+                                                .successHandler(successHandler())
+                                                .failureUrl("/login.html?error=true")
+                                                .permitAll())
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint((request, response, authException) -> {
+                                                        response.sendRedirect("/login.html");
+                                                }))
+                                .rememberMe(remember -> remember
+                                                .tokenRepository(persistentTokenRepository())
+                                                .tokenValiditySeconds(2592000) // 30 días
+                                                .userDetailsService(userDetailsService())
+                                                .key("asistenciaV2rSecretKey")
+                                                .rememberMeParameter("remember-me")
+                                                .useSecureCookie(true))
+                                .sessionManagement(session -> session
+                                                .invalidSessionUrl("/login.html")
+                                                .maximumSessions(1)
+                                                .expiredUrl("/login.html?expired")
+                                                .and()
+                                                .sessionFixation().migrateSession())
+                                .logout(logout -> logout
+                                                .logoutUrl("/logout")
+                                                .logoutSuccessUrl("/login.html")
+                                                .invalidateHttpSession(true)
+                                                .deleteCookies("JSESSIONID")
+                                                .permitAll())
+                                .csrf(csrf -> csrf.disable());
 
-        return http.build();
-    }
+                return http.build();
+        }
 
 }

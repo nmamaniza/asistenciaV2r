@@ -1,6 +1,7 @@
 com\asistenciav2\servlet\UsersUpdateServlet.class
 com\asistenciav2\servlet\EquiposServlet.class
 com\asistenciav2\servlet\ConsolidatedDataUserServlet.class
+com\asistenciav2\listener\AppLifecycleListener.class
 com\asistenciav2\servlet\AttendanceListServlet.class
 com\asistenciav2\servlet\AreasServlet.class
 com\asistenciav2\servlet\UpdateDailyAttendanceServlet.class
@@ -8,6 +9,7 @@ com\asistenciav2\servlet\ConsolidatedTimeExportServlet.class
 com\asistenciav2\servlet\UsersServlet.class
 com\asistenciav2\service\BiometricSyncService$BiometricDevice.class
 com\asistenciav2\servlet\PermissionsDebugServlet.class
+com\asistenciav2\servlet\CalendarServlet.class
 com\asistenciav2\servlet\ProcessedDataServlet.class
 com\asistenciav2\servlet\ConsolidatedTimeServlet.class
 com\asistenciav2\servlet\CheckTableStructureServlet.class

@@ -11,7 +11,8 @@ const MENU_CONFIG = {
         { icon: '🔐', text: 'Permisos', href: '/asistenciaV2r/permisos.html' },
         { icon: '📊', text: 'Consolidado', href: '/asistenciaV2r/consolidado.html' },
         { icon: '⏱️', text: 'Consolidado Tiempo', href: '/asistenciaV2r/consolidado_tiempo.html' },
-        { icon: '👥', text: 'Perfiles', href: '/asistenciaV2r/perfiles.html' }
+        { icon: '👥', text: 'Perfiles', href: '/asistenciaV2r/perfiles.html' },
+        { icon: '📅', text: 'Calendario Laboral', href: '/asistenciaV2r/calendario.html' }
     ],
     USER: [
         { icon: '🏠', text: 'Dashboard', href: '/asistenciaV2r/dashboard.html' },

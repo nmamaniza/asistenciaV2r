@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario Laboral - Sistema de Asistencia</title>
+
+    <!-- OpenUI5 -->
+    <script id="sap-ui-bootstrap" src="https://openui5.hana.ondemand.com/resources/sap-ui-core.js"
+        data-sap-ui-theme="sap_horizon" data-sap-ui-libs="sap.m, sap.ui.layout" data-sap-ui-compatVersion="edge"
+        data-sap-ui-async="true">
+        </script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "72", "72full", Arial, Helvetica, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        /* Estilos del Header y Menú */
+        .header {
+            background-color: #8e44ad;
+            color: white;
+            padding: 0.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 1000;
+            height: 60px;
+            box-sizing: border-box;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            color: #8e44ad;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            user-select: none;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            right: 0;
+            top: 50px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            min-width: 250px;
+            z-index: 2000;
+            text-align: left;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-header {
+            padding: 12px 16px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: bold;
+            color: #495057;
+            font-size: 0.95rem;
+        }
+
+        .dropdown-item {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background-color 0.2s ease;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f0f0f0;
+            color: #8e44ad;
+        }
+
+        .dropdown-item.logout {
+            border-top: 1px solid #e9ecef;
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .dropdown-item.logout:hover {
+            background-color: #fff5f5;
+        }
+
+        .calendar-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .month-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .month-header {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .day-cell {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 8px;
+            min-height: 60px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .day-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .day-cell.laborable {
+            background-color: #E8F5E9;
+            border-color: #4CAF50;
+        }
+
+        .day-cell.feriado {
+            background-color: #FFEBEE;
+            border-color: #F44336;
+        }
+
+        .day-cell.recuperable {
+            background-color: #FFF9C4;
+            border-color: #FFC107;
+        }
+
+        .day-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .day-cell.laborable .day-number {
+            color: #2E7D32;
+        }
+
+        .day-cell.feriado .day-number {
+            color: #C62828;
+        }
+
+        .day-cell.recuperable .day-number {
+            color: #F57F17;
+        }
+
+        .day-label {
+            font-size: 0.85em;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .day-cell.laborable .day-label {
+            color: #388E3C;
+        }
+
+        .day-cell.feriado .day-label {
+            color: #D32F2F;
+        }
+
+        .day-cell.recuperable .day-label {
+            color: #F9A825;
+        }
+
+        .empty-cell {
+            min-height: 70px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: 2px solid;
+        }
+
+        .legend-box.laborable {
+            background-color: #E8F5E9;
+            border-color: #4CAF50;
+        }
+
+        .legend-box.feriado {
+            background-color: #FFEBEE;
+            border-color: #F44336;
+        }
+
+        .legend-box.recuperable {
+            background-color: #FFF9C4;
+            border-color: #FFC107;
+        }
+
+        .toolbar-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Estilos Responsive para Móviles */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0.5rem 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .calendar-container {
+                padding: 5px;
+                margin: 10px auto;
+            }
+
+            .month-section {
+                padding: 10px 5px;
+            }
+
+            .calendar-grid {
+                gap: 2px;
+            }
+
+            .day-header {
+                padding: 2px;
+                font-size: 0.75em;
+            }
+
+            .day-cell {
+                min-height: 35px;
+                padding: 1px;
+                border-radius: 3px;
+                border-width: 1px;
+            }
+
+            .day-number {
+                font-size: 0.9em;
+                margin-bottom: 2px;
+            }
+
+            .day-desc {
+                font-size: 0.55em;
+                line-height: 1;
+                white-space: normal;
+                text-align: center;
+                max-width: 100%;
+            }
+
+            .legend {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .legend-item {
+                font-size: 0.8em;
+            }
+
+            .legend-box {
+                width: 16px;
+                height: 16px;
+            }
+        }
+    </style>
+    <script src="js/menu-manager.js"></script>
+
+    <script>
+        sap.ui.getCore().attachInit(function () {
+            "use strict";
+
+            // Verificar sesión
+            fetch('/asistenciaV2r/api/userInfo', { credentials: 'include' })
+                .then(response => {
+                    if (!response.ok) {
+                        window.location.href = '/asistenciaV2r/login.html';
+                        return null;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return; // Ya redirigido al login
+
+                    console.log('Datos de usuario recibidos:', data);
+
+                    // Verificar si es administrador usando el campo isAdmin
+                    if (!data.success || !data.isAdmin) {
+                        sap.m.MessageBox.error("Solo administradores pueden acceder al calendario laboral", {
+                            onClose: function () {
+                                window.location.href = '/asistenciaV2r/dashboard.html';
+                            }
+                        });
+                        return;
+                    }
+
+                    // Usuario es administrador, continuar con la carga
+                    console.log('Usuario administrador verificado:', data.nombre || 'Admin');
+                })
+                .catch(error => {
+                    console.error('Error verificando sesión:', error);
+                    window.location.href = '/asistenciaV2r/login.html';
+                });
+
+            const currentYear = new Date().getFullYear();
+            let calendarData = {};
+            let selectedYear = currentYear;
+
+            const monthNames = [
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ];
+
+            const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+            // Inicializar menú
+            if (window.menuManager) {
+                window.menuManager.init().catch(err => console.error("Error init menu:", err));
+            }
+
+            // Crear página principal
+            const page = new sap.m.Page("calendarPage", {
+                title: "Calendario Laboral",
+                showNavButton: false,
+                content: []
+            });
+
+            // Toolbar con controles
+            const yearSelect = new sap.m.Select("yearSelect", {
+                width: "150px",
+                change: function (oEvent) {
+                    selectedYear = parseInt(oEvent.getParameter("selectedItem").getKey());
+                    loadCalendar(selectedYear);
+                }
+            });
+
+            // Cargar años disponibles desde la base de datos
+            loadAvailableYears();
+
+            const monthSelect = new sap.m.Select("monthSelect", {
+                width: "200px",
+                items: [
+                    new sap.ui.core.Item({ key: "all", text: "Todos los meses" })
+                ].concat(monthNames.map((name, idx) =>
+                    new sap.ui.core.Item({ key: (idx + 1).toString(), text: name })
+                ))
+            });
+
+            const loadButton = new sap.m.Button({
+                text: "Cargar Calendario",
+                type: "Emphasized",
+                icon: "sap-icon://refresh",
+                press: function () {
+                    const month = monthSelect.getSelectedKey();
+                    if (month === "all") {
+                        loadCalendar(selectedYear);
+                    } else {
+                        loadCalendar(selectedYear, parseInt(month));
+                    }
+                }
+            });
+
+            const generateButton = new sap.m.Button({
+                text: "Generar Nuevo Año",
+                type: "Accept",
+                icon: "sap-icon://add",
+                press: function () {
+                    generateNewYear();
+                }
+            });
+
+            const toolbar = new sap.m.Toolbar({
+                content: [
+                    new sap.m.Label({ text: "Año:", labelFor: "yearSelect" }),
+                    yearSelect,
+                    new sap.m.ToolbarSpacer({ width: "20px" }),
+                    new sap.m.Label({ text: "Mes:", labelFor: "monthSelect" }),
+                    monthSelect,
+                    new sap.m.ToolbarSpacer({ width: "20px" }),
+                    loadButton,
+                    new sap.m.ToolbarSpacer(),
+                    generateButton
+                ]
+            });
+
+            const toolbarContainer = new sap.m.VBox({
+                items: [toolbar]
+            }).addStyleClass("toolbar-container");
+
+            // Leyenda
+            const legend = createLegend();
+
+            // Contenedor del calendario
+            const calendarContainer = new sap.m.VBox("calendarContainer", {
+                items: []
+            }).addStyleClass("calendar-container");
+
+            page.addContent(toolbarContainer);
+            page.addContent(legend);
+            page.addContent(calendarContainer);
+
+            const app = new sap.m.App({
+                pages: [page]
+            });
+
+            app.placeAt("content");
+
+            // La carga inicial del calendario se hace dentro de loadAvailableYears
+            // loadCalendar(currentYear);
+
+            // Funciones
+            function loadAvailableYears() {
+                yearSelect.setBusy(true);
+                fetch('/asistenciaV2r/api/calendar?op=years')
+                    .then(response => response.json())
+                    .then(years => {
+                        yearSelect.removeAllItems();
+                        yearSelect.setBusy(false);
+
+                        if (!Array.isArray(years) || years.length === 0) {
+                            // Si no hay años, mostrar actual para permitir generar
+                            years = [currentYear];
+                        }
+
+                        // Agregar años al selector
+                        years.forEach(y => {
+                            yearSelect.addItem(new sap.ui.core.Item({
+                                key: y.toString(),
+                                text: y.toString()
+                            }));
+                        });
+
+                        // Seleccionar el año actual si está disponible, o el primero (más reciente)
+                        let defaultYear = currentYear;
+                        if (!years.includes(currentYear)) {
+                            defaultYear = years[0];
+                        }
+
+                        selectedYear = parseInt(defaultYear);
+                        yearSelect.setSelectedKey(defaultYear.toString());
+
+                        // Cargar calendario del año seleccionado
+                        loadCalendar(selectedYear);
+                    })
+                    .catch(error => {
+                        console.error('Error cargando años:', error);
+                        yearSelect.setBusy(false);
+                        // Fallback a año actual
+                        yearSelect.addItem(new sap.ui.core.Item({ key: currentYear.toString(), text: currentYear.toString() }));
+                        yearSelect.setSelectedKey(currentYear.toString());
+                        loadCalendar(currentYear);
+                    });
+            }
+
+            function createLegend() {
+                const legendHTML = `
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-box laborable"></div>
+                            <span>Día Laborable</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-box feriado"></div>
+                            <span>Día No Laborable</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-box recuperable"></div>
+                            <span>Día Recuperable</span>
+                        </div>
+                    </div>
+                `;
+                return new sap.ui.core.HTML({
+                    content: legendHTML
+                });
+            }
+
+            function loadCalendar(year, month) {
+                sap.ui.core.BusyIndicator.show(0);
+
+                let url = `/asistenciaV2r/api/calendar?year=${year}`;
+                if (month) {
+                    url += `&month=${month}`;
+                }
+
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Error al cargar calendario');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        calendarData = {};
+                        data.forEach(day => {
+                            calendarData[day.fecha] = day;
+                        });
+                        renderCalendar(year, month);
+                        sap.ui.core.BusyIndicator.hide();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        sap.m.MessageToast.show('Error al cargar el calendario');
+                        sap.ui.core.BusyIndicator.hide();
+                    });
+            }
+
+            function renderCalendar(year, specificMonth) {
+                const container = sap.ui.getCore().byId("calendarContainer");
+                container.removeAllItems();
+
+                const monthsToRender = specificMonth ? [specificMonth - 1] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+                monthsToRender.forEach(monthIndex => {
+                    const monthSection = renderMonth(year, monthIndex);
+                    container.addItem(monthSection);
+                });
+            }
+
+            function renderMonth(year, monthIndex) {
+                const firstDay = new Date(year, monthIndex, 1);
+                const lastDay = new Date(year, monthIndex + 1, 0);
+                const startDayOfWeek = firstDay.getDay();
+                const daysInMonth = lastDay.getDate();
+
+                let calendarHTML = `
+                    <div class="month-section">
+                        <div class="month-header">${monthNames[monthIndex]} - ${year}</div>
+                        <div class="calendar-grid">
+                `;
+
+                // Headers de días de la semana
+                dayNames.forEach(day => {
+                    calendarHTML += `<div class="day-header">${day}</div>`;
+                });
+
+                // Celdas vacías antes del primer día
+                for (let i = 0; i < startDayOfWeek; i++) {
+                    calendarHTML += `<div class="empty-cell"></div>`;
+                }
+
+                // Días del mes
+                for (let day = 1; day <= daysInMonth; day++) {
+                    // Construcción manual de la fecha para evitar problemas de zona horaria (UTC vs Local)
+                    const dateStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayData = calendarData[dateStr];
+
+                    let className = 'laborable';
+                    let label = 'Laborable';
+
+                    if (dayData) {
+                        switch (dayData.estado) {
+                            case 0:
+                                className = 'feriado';
+                                label = dayData.descripcion || 'No Laborable';
+                                break;
+                            case 1:
+                                className = 'laborable';
+                                label = 'Laborable';
+                                break;
+                            case 2:
+                                className = 'recuperable';
+                                label = 'Recuperable';
+                                break;
+                        }
+                    }
+
+                    calendarHTML += `
+                        <div class="day-cell ${className}" data-date="${dateStr}" onclick="handleDayClick('${dateStr}')">
+                            <div class="day-number">${day}</div>
+                            <div class="day-desc">${label}</div>
+                        </div>
+                    `;
+                }
+
+                calendarHTML += `
+                        </div>
+                    </div>
+                `;
+
+                return new sap.ui.core.HTML({
+                    content: calendarHTML
+                });
+            }
+
+            window.handleDayClick = function (dateStr) {
+                const dayData = calendarData[dateStr];
+                // Si no existe, usamos valores por defecto (ej. día futuro generado dinámicamente o error)
+                const currentEstado = dayData ? dayData.estado : 1;
+                const currentDesc = (dayData && dayData.descripcion) ? dayData.descripcion : (currentEstado === 1 ? "Laborable" : "");
+
+                const dialog = new sap.m.Dialog({
+                    title: "Modificar Día: " + dateStr,
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: "Estado:" }),
+                                new sap.m.Select("estadoSelect", {
+                                    width: "100%",
+                                    selectedKey: currentEstado.toString(),
+                                    items: [
+                                        new sap.ui.core.Item({ key: "0", text: "No Laborable" }),
+                                        new sap.ui.core.Item({ key: "1", text: "Laborable" }),
+                                        new sap.ui.core.Item({ key: "2", text: "Recuperable" })
+                                    ],
+                                    change: function (oEvent) {
+                                        const key = oEvent.getParameter("selectedItem").getKey();
+                                        const descInput = sap.ui.getCore().byId("descInput");
+                                        const currentVal = descInput.getValue();
+
+                                        // Auto-llenar descripción
+                                        if (key === "0") {
+                                            if (!currentVal || currentVal === "Laborable" || currentVal === "Recuperable") {
+                                                descInput.setValue("Día No Laborable");
+                                            }
+                                        } else if (key === "1") {
+                                            if (!currentVal || currentVal === "Día No Laborable" || currentVal === "Recuperable") {
+                                                descInput.setValue("Laborable");
+                                            }
+                                        } else if (key === "2") {
+                                            if (!currentVal || currentVal === "Día No Laborable" || currentVal === "Laborable") {
+                                                descInput.setValue("Recuperable");
+                                            }
+                                        }
+                                    }
+                                }),
+                                new sap.m.Label({ text: "Descripción:", labelFor: "descInput" }).addStyleClass("sapUiSmallMarginTop"),
+                                new sap.m.Input("descInput", {
+                                    width: "100%",
+                                    value: currentDesc,
+                                    placeholder: "Ingrese descripción"
+                                }),
+                                new sap.m.Label({ text: "Información:" }).addStyleClass("sapUiSmallMarginTop"),
+                                new sap.m.Text({
+                                    text: "Si cambia el estado, se actualizará en la base de datos."
+                                })
+                            ]
+                        }).addStyleClass("sapUiSmallMargin")
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: "Guardar",
+                        type: "Emphasized",
+                        press: function () {
+                            const newEstado = parseInt(sap.ui.getCore().byId("estadoSelect").getSelectedKey());
+                            const newDesc = sap.ui.getCore().byId("descInput").getValue();
+                            updateDayStatus(dateStr, newEstado, newDesc);
+                            dialog.close();
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: "Cancelar",
+                        press: function () {
+                            dialog.close();
+                        }
+                    }),
+                    afterClose: function () {
+                        dialog.destroy();
+                    }
+                });
+
+                dialog.open();
+            };
+
+            function updateDayStatus(fecha, estado, descripcion) {
+                sap.ui.core.BusyIndicator.show(0);
+
+                fetch('/asistenciaV2r/api/calendar', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fecha, estado, descripcion })
+                })
+                    .then(async response => {
+                        if (!response.ok) {
+                            let errorMsg = 'Error al actualizar';
+                            try {
+                                const errData = await response.json();
+                                errorMsg = errData.error || errorMsg;
+                            } catch (e) {
+                                errorMsg = await response.text();
+                            }
+                            throw new Error(errorMsg);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        sap.m.MessageToast.show('Día actualizado correctamente');
+                        loadCalendar(selectedYear);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        sap.m.MessageBox.error(error.message || 'Error desconocido al actualizar el día');
+                        sap.ui.core.BusyIndicator.hide();
+                    });
+            }
+
+            function generateNewYear() {
+                const yearInput = new sap.m.Input("newYearInput", {
+                    type: "Number",
+                    value: (currentYear + 1).toString(),
+                    placeholder: "Ingrese el año"
+                });
+
+                const dialog = new sap.m.Dialog({
+                    title: "Generar Calendario para Nuevo Año",
+                    content: [
+                        new sap.m.VBox({
+                            items: [
+                                new sap.m.Label({ text: "Año:", labelFor: "newYearInput" }),
+                                yearInput,
+                                new sap.m.Text({
+                                    text: "Nota: Esto generará automáticamente el calendario con feriados nacionales del Perú."
+                                }).addStyleClass("sapUiTinyMarginTop")
+                            ]
+                        }).addStyleClass("sapUiSmallMargin")
+                    ],
+                    beginButton: new sap.m.Button({
+                        text: "Generar",
+                        type: "Emphasized",
+                        press: function () {
+                            const year = yearInput.getValue();
+                            if (!year || year < 2020 || year > 2100) {
+                                sap.m.MessageBox.error("Por favor ingrese un año válido");
+                                return;
+                            }
+
+                            sap.ui.core.BusyIndicator.show(0);
+
+                            fetch('/asistenciaV2r/api/calendar', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ year })
+                            })
+                                .then(async response => {
+                                    if (!response.ok) {
+                                        let errorMsg = 'Error al generar calendario';
+                                        try {
+                                            const errData = await response.json();
+                                            errorMsg = errData.error || errorMsg;
+                                        } catch (e) {
+                                            errorMsg = await response.text();
+                                        }
+                                        throw new Error(errorMsg);
+                                    }
+                                    return response.json();
+                                })
+                                .then(data => {
+                                    sap.m.MessageToast.show(data.message || 'Calendario generado correctamente');
+                                    selectedYear = parseInt(year);
+
+                                    // Recargar años disponibles
+                                    loadAvailableYears();
+
+                                    dialog.close();
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                    sap.m.MessageBox.error(error.message || 'Error al generar el calendario');
+                                    sap.ui.core.BusyIndicator.hide();
+                                });
+                        }
+                    }),
+                    endButton: new sap.m.Button({
+                        text: "Cancelar",
+                        press: function () {
+                            dialog.close();
+                        }
+                    }),
+                    afterClose: function () {
+                        dialog.destroy();
+                    }
+                });
+
+                dialog.open();
+            }
+        });
+    </script>
+</head>
+
+<body class="sapUiBody">
+    <div class="header">
+        <div>
+            <h1 style="margin:0; font-size:1.5rem;">Calendario Laboral</h1>
+        </div>
+        <div class="user-menu">
+            <div class="user-avatar" id="userAvatar" onclick="toggleDropdown()">
+                U
+            </div>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <!-- Javascript will populate this -->
+            </div>
+        </div>
+    </div>
+    <div id="content"></div>
+</body>
+
+</html>
